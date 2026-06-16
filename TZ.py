@@ -1,25 +1,35 @@
 import asyncio
 import json
-from collections import defaultdict
+import traceback
 from datetime import datetime
 
 import websockets
 
-from simagentplg import BaseAgent
+from simagentplg import BaseAgent, ModelConfig
+
+
 
 # ═══════════════════════════════════════════════════
 # NapCat 配置
 # ═══════════════════════════════════════════════════
-WS_HOST = "127.0.0.1"
+WS_HOST = "0.0.0.0"
 WS_PORT = 8082
-NAPCAT_TOKEN = "XRqYVvvXF_dQM4ix"
+NAPCAT_TOKEN = "GJVwi53qVoMTWbPy"
 
-# 全局复用同一个 BaseAgent 实例（chat mode）
-agent: BaseAgent | None = None
+# 每个用户维护一个独立的 BaseAgent，会话记忆交给 BaseAgent 自身管理
+agents: dict[str, BaseAgent] = {}
 
-# 每个用户保留最近 N 轮对话历史
-MAX_HISTORY = 10
-user_histories: dict[str, list[dict]] = defaultdict(list)
+
+def log_event(message: str) -> None:
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(f"[{now}] {message}", flush=True)
+
+
+def preview_text(value: object, limit: int = 200) -> str:
+    text = value if isinstance(value, str) else repr(value)
+    if len(text) > limit:
+        return text[:limit] + "..."
+    return text
 
 # ═══════════════════════════════════════════════════
 # 1. System Prompt —— 格式规则、行为约束
@@ -65,6 +75,7 @@ SCENARIO_TEMPLATES = {
     "default": "你终于从公司出来，习惯性地走进了车站旁那家超市。货架间的灯光很亮，收银台那边传来熟悉的声音。",
 }
 
+
 def get_scenario() -> str:
     """根据当前时间返回场景描述。"""
     now = datetime.now()
@@ -81,82 +92,109 @@ def get_scenario() -> str:
         scene = SCENARIO_TEMPLATES["default"]
     return f"当前时间：{time_str}\n{scene}"
 
+
 # ═══════════════════════════════════════════════════
 # 4. 拼装 system_prompt
 # ═══════════════════════════════════════════════════
 def build_system_prompt() -> str:
-    return "\n\n".join([
-        SYSTEM_PROMPT.strip(),
-        "【角色设定】\n" + CHARACTER_DESCRIPTION.strip(),
-        "【当前场景】\n" + get_scenario(),
-    ])
+    return "\n\n".join(
+        [
+            SYSTEM_PROMPT.strip(),
+            "【角色设定】\n" + CHARACTER_DESCRIPTION.strip(),
+            "【当前场景】\n" + get_scenario(),
+        ]
+    )
+
 
 # ═══════════════════════════════════════════════════
 # 5. WebSocket 消息处理
 # ═══════════════════════════════════════════════════
 async def recv_msg(websocket):
-    global agent
+    remote = getattr(websocket, "remote_address", None)
+    request = getattr(websocket, "request", None)
+    path = getattr(request, "path", None)
+    log_event(f"连接建立 — remote={remote}, path={path}")
 
-    async for raw in websocket:
-        data = json.loads(raw)
+    try:
+        async for raw in websocket:
+            data = json.loads(raw)
 
-        if isinstance(data, list):
-            print(f"收到 Array 消息，共 {len(data)} 条")
-            data = data[0]
+            if isinstance(data, list):
+                data = data[0]
 
-        print(f"收到消息 — post_type={data.get('post_type')}, "
-              f"user_id={data.get('user_id')}, "
-              f"message={data.get('raw_message', data.get('message', ''))[:50]}")
+            if data.get("post_type") != "message":
+                continue
 
-        if data.get("post_type") != "message":
-            continue
+            message = data.get("raw_message", data.get("message", ""))
+            if not message:
+                continue
 
-        message = data.get("raw_message", data.get("message", ""))
-        if not message:
-            continue
+            user_id = str(data["user_id"])
+            log_event(f"收到消息 — user_id={user_id}, message={preview_text(message, 80)}")
 
-        user_id = str(data["user_id"])
-        history = user_histories[user_id]
+            try:
+                agent = agents.get(user_id)
+                if agent is None:
+                    agent = BaseAgent(
+                        config=ModelConfig.from_env(),
+                        agent_id=f"TZ-{user_id}",
+                        system_prompt=build_system_prompt(),
+                        enable_tools=False,
+                    )
+                    agents[user_id] = agent
+                    log_event(f"创建用户会话 — user_id={user_id}, agent_id=TZ-{user_id}")
 
-        try:
-            if not agent:
-                reply_text = "机器人未初始化。"
-            else:
-                print(f"开始处理消息: {message[:80]}")
+                log_event(f"开始处理消息 — user_id={user_id}, text={preview_text(message, 80)}")
                 # 动态更新 system_prompt（场景随时间变化）
                 agent.system_prompt = build_system_prompt()
-                result = await agent.runtime(task=message, history=history)
+                result = await agent.runtime(task=message)
                 reply_text = result or "..."
-                print(f"处理完成，回复: {reply_text[:80]}")
-        except Exception as e:
-            print(f"处理出错: {e}")
-            reply_text = f"处理出错：{e}"
+                log_event(f"处理完成 — user_id={user_id}, reply={preview_text(reply_text, 80)}")
+            except Exception as e:
+                log_event(f"处理出错 — user_id={user_id}, error={e!r}")
+                traceback.print_exc()
+                reply_text = f"处理出错：{e}"
 
-        # 记录对话历史
-        history.append({"role": "user", "content": message})
-        history.append({"role": "assistant", "content": reply_text})
-        if len(history) > MAX_HISTORY * 2:
-            user_histories[user_id] = history[-(MAX_HISTORY * 2):]
+            reply = {
+                "action": "send_msg",
+                "params": {
+                    "user_id": user_id,
+                    "message": reply_text,
+                },
+            }
+            await websocket.send(json.dumps(reply))
+            log_event(f"已发送回复 — user_id={user_id}, body={preview_text(reply_text, 80)}")
+    except Exception as e:
+        log_event(f"连接异常关闭 — remote={remote}, error={e!r}")
+        traceback.print_exc()
+        raise
+    finally:
+        log_event(f"连接结束 — remote={remote}")
 
-        reply = {
-            "action": "send_msg",
-            "params": {
-                "user_id": user_id,
-                "message": reply_text,
-            },
-        }
-        await websocket.send(json.dumps(reply))
-        print(f"已发送回复至 user_id={user_id}")
+
+async def log_ws_request(connection, request):
+    log_event(
+        "收到握手请求 — "
+        f"remote={getattr(connection, 'remote_address', None)}, "
+        f"path={getattr(request, 'path', None)}"
+    )
+    return None
+
 
 async def main():
-    global agent
+    try:
+        async with websockets.serve(
+            recv_msg,
+            WS_HOST,
+            WS_PORT,
+            process_request=log_ws_request,
+        ):
+            log_event(f"机器人启动：ws://{WS_HOST}:{WS_PORT}")
+            await asyncio.Future()
+    finally:
+        for agent in agents.values():
+            await agent.shutdown()
 
-    # 使用 BaseAgent chat mode：enable_tools=False，纯对话不加载 MCP/Skills
-    agent = BaseAgent(enable_tools=False)
-
-    async with websockets.serve(recv_msg, WS_HOST, WS_PORT):
-        print(f"机器人启动：ws://{WS_HOST}:{WS_PORT}")
-        await asyncio.Future()
 
 if __name__ == "__main__":
     asyncio.run(main())
