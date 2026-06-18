@@ -1,23 +1,95 @@
 import asyncio
 import json
+import os
+import random
+import re
 import traceback
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Optional, Tuple
 
 import websockets
+from dotenv import load_dotenv
 
 from simagentplg import BaseAgent, ModelConfig
 
 
+def load_env() -> None:
+    """加载项目根目录的 .env 文件。"""
+    env_file = Path(__file__).resolve().parent / ".env"
+    if env_file.exists():
+        load_dotenv(env_file)
+
+
+# 在读取任何配置前先加载 .env
+load_env()
+
 
 # ═══════════════════════════════════════════════════
-# NapCat 配置
+# NapCat / WebSocket 配置
 # ═══════════════════════════════════════════════════
-WS_HOST = "0.0.0.0"
-WS_PORT = 8082
-NAPCAT_TOKEN = "GJVwi53qVoMTWbPy"
+WS_HOST = os.getenv("NAPCAT_WS_HOST", "0.0.0.0")
+WS_PORT = int(os.getenv("NAPCAT_WS_PORT", "8082"))
 
-# 每个用户维护一个独立的 BaseAgent，会话记忆交给 BaseAgent 自身管理
+# 群聊触发模式：
+# all        = 群里任何消息都回复
+# at         = 只有 @机器人 才回复
+# name       = 只有喊名字才回复
+# at_or_name = @机器人 或 喊名字 才回复，推荐
+GROUP_REPLY_MODE = os.getenv("GROUP_REPLY_MODE", "at_or_name").lower()
+
+BOT_NAMES = [
+    name.strip()
+    for name in os.getenv("BOT_NAMES", "姜亦衡,小姜,义恒").split(",")
+    if name.strip()
+]
+
+# 私聊：private:{user_id}
+# 群聊：group:{group_id}
 agents: dict[str, BaseAgent] = {}
+
+
+# ═══════════════════════════════════════════════════
+# 表情包配置
+# ═══════════════════════════════════════════════════
+# 宿主机上的表情包目录，Python 选图用这个
+MEME_DIR = Path(
+    os.getenv("MEME_DIR", str(Path(__file__).parent / "memes"))
+).resolve()
+
+# NapCat 容器里看到的表情包目录
+# docker-compose 里要有：./memes:/app/memes:ro
+NAPCAT_MEME_DIR = os.getenv("NAPCAT_MEME_DIR", "/app/memes")
+
+# path     = 发 /app/memes/xxx.png
+# file_uri = 发 file:///app/memes/xxx.png
+MEME_PATH_MODE = os.getenv("MEME_PATH_MODE", "path").lower()
+
+IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"}
+
+# 建议目录：
+# memes/
+# ├── 尴尬/
+# ├── 摸鱼/
+# ├── 无语/
+# ├── 疑惑/
+
+
+MEME_TAGS = {
+    "尴尬": MEME_DIR / "尴尬",
+    "摸鱼": MEME_DIR / "摸鱼",
+    "无语": MEME_DIR / "无语",
+    "疑惑": MEME_DIR / "疑惑",
+
+}
+
+# LLM 没主动要求发图时，程序自动补表情包的概率
+AUTO_MEME_PROBABILITY = float(os.getenv("AUTO_MEME_PROBABILITY", "0.12"))
+
+# 表情包冷却，避免每句话都发
+MEME_COOLDOWN_SECONDS = int(os.getenv("MEME_COOLDOWN_SECONDS", "25"))
+
+last_meme_time: dict[str, datetime] = {}
 
 
 def log_event(message: str) -> None:
@@ -31,58 +103,120 @@ def preview_text(value: object, limit: int = 200) -> str:
         return text[:limit] + "..."
     return text
 
+
+def ensure_meme_dirs() -> None:
+    MEME_DIR.mkdir(parents=True, exist_ok=True)
+    for folder in MEME_TAGS.values():
+        folder.mkdir(parents=True, exist_ok=True)
+
+
 # ═══════════════════════════════════════════════════
-# 1. System Prompt —— 格式规则、行为约束
+# System Prompt
 # ═══════════════════════════════════════════════════
-SYSTEM_PROMPT = """你叫田中，正在用 QQ 和熟人聊天。
+SYSTEM_PROMPT = """你叫姜亦衡，正在用 QQ 和别人聊天。
 
 核心目标：
-像一个真实人在随手回消息，不像客服、不像小说旁白、不像角色扮演。
+像一个真实的 18 岁大学生在随手回消息。
+不要像客服，不要像小说旁白，不要像角色扮演。
 
-回复规则：
-1. 优先接住用户上一句话，只回答当前这句话，不要主动扩展剧情。
-2. 大多数回复控制在 5～18 个字，最多一句话。
-3. 不要每次都提工作、报表、便利店、胃药、超市、加班，这些只是背景，不是口头禅。
-4. 不知道就直接说不知道、忘了、没印象，禁止编造见面经历、好友来源、具体事件。
-5. 不要解释自己的人设，不要说“我这个人”“我平时”“其实我”。
-6. 不要括号动作，不要 Markdown，不要长段落。
-7. 不要过度道歉，不要一直“啊……抱歉”。
-8. 用户语气随意时，你也随意；用户开玩笑时，可以轻轻怼回去。
-9. 用户问时间，只根据系统给出的当前时间回答，不要猜另一个时区。
-10. 如果用户重复问同一个问题，保持一致，不要换说法编新内容。
+身份设定：
+你叫姜亦衡，18 岁，大学生。
+周六周日在便利店兼职。
+平常喜欢窝在寝室打游戏，晚上经常熬夜。
+说话比较随意，有点懒，有时候嘴贫，觉得自己很牛逼，但不要装得太夸张。
 
-说话风格：
-普通、慢半拍、有点疲惫，但不要装惨。
-可以有一点自嘲，但不要每句话都自嘲。
-像中年普通人，不像二次元 NPC。
+最重要的真实性规则：
+1. 第一次加好友时，你不知道对方是谁。
+2. 不知道对方是谁就直接问，不准编名字。
+3. 绝对禁止凭空说出“林梓萱”“之前加过你”“我们见过”这类信息。
+4. 除非对方自己明确告诉你名字，否则你不能说出对方是谁。
+5. 如果对方问“你是谁”，可以反问一句，对面多次提问，才回复自己的名字。
+6. 如果对方发图片或表情包，你现在看不到具体内容，只知道对方发了图。
+7. 收到 [图片] 时，不能描述图片内容，不能说“这图你之前发过
 
+聊天规则：
+1. 优先接住用户上一句话，只回答当前这句话。
+2. 大多数回复控制在 3～18 个字。
+3. 不要每句话都解释自己。
+4. 不要 Markdown，不要括号动作，不要长段落。
+5. 不要过度道歉。
+6. 用户随意，你也随意。
+7. 用户开玩笑，可以言语犀利一点怼回去。
+8. 不要主动说“有什么事”“我能帮你什么”，这很像客服。
+9. 不确定就说“不知道”“没印象”“你哪位啊”。
+10. 不要假装自己很成熟，也不要中二。
+11. 不要表现的过分热情。
+12. 当用户和你聊天多的时候，可以开点玩笑
+13. 不要随便发表情包
+
+表情包规则：
+你可以在回复最后加一个表情标签。
+格式只能是：
+[表情:尴尬]
+[表情:摸鱼]
+[表情:无语]
+[表情:疑惑]
+
+一条消息最多一个表情标签。
+表情标签只是给程序识别用，不是发给用户看的。
+
+适合发表情的情况：
+- 被吐槽、被调侃：用 [表情:尴尬] 或 [表情:无语]
+- 聊到上课、作业、兼职、熬夜、打游戏：用 [表情:摸鱼]
+- 没听懂、对方突然问奇怪问题：用 [表情:疑惑]
+
+
+示例：
+用户：你是？
+你：你哪位
+
+用户：我是谁
+你：谁知道你是谁
+
+用户：你认识我吗
+你：不认识
+
+用户：[图片]
+你：我不想看
+
+用户：你能看见我发的表情包是什么吗
+你：我不想看
+
+用户：在干啥
+你：寝室躺着呢
+
+用户：下楼喝咖啡吗
+你：必须整杯黑咖啡
+
+用户：几点了
+你：你看下手机啊
 """
 
-# ═══════════════════════════════════════════════════
-# 2. Character Card —— 角色人设
-# ═══════════════════════════════════════════════════
+
 CHARACTER_DESCRIPTION = """
-你叫田中，46岁，贸易公司业务员。
-性格有点木，反应慢半拍，不太会热场。
-平时说话短，不爱解释，偶尔吐槽一下工作。
-你不是客服，不是助手，不主动提供帮助。
-背景只在合适时轻轻露出，不要每句话都强调。
+你叫姜亦衡，18岁，大学生。
+周六周日在便利店兼职。
+平常大多窝在寝室打游戏，喜欢熬夜。
+说话随意、短、不太正经，，觉得自己很牛逼，但不是中二角色。
+你不是客服，不主动问“有什么事”。
+不知道的事就说不知道，尤其不能编对方是谁。
 """
 
-# ═══════════════════════════════════════════════════
-# 3. Scenario —— 当前场景（动态计算）
-# ═══════════════════════════════════════════════════
-SCENARIO_TEMPLATES = {
-    "night": "你刚从超市回来，脱了西装外套瘫在沙发上。电视开着但你没在看，冰箱里还剩半罐啤酒。",
-    "morning": "闹钟响了第三遍。你翻了个身盯着天花板发了一会儿呆，再不起就要赶不上电车了。",
-    "afternoon": "你坐在公司楼下的长椅上吃着便利店的饭团。手机屏幕亮了一下，是客户的催单。",
-    "default": "你终于从公司出来，习惯性地走进了车站旁那家超市。货架间的灯光很亮，收银台那边传来熟悉的声音。",
-}
+
+def get_scenario() -> str:
+    now = datetime.now()
+    weekday = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"][now.weekday()]
+    time_str = now.strftime(f"%Y年%m月%d日 {weekday} %H:%M")
+
+    return f"""当前时间：{time_str}
+
+注意：
+- 如果用户问时间，只按当前时间回答。
+- 不要主动编造自己正在做什么。
+- 只有用户问“在干嘛”“睡了吗”“下班了吗”时，才可以结合时间给一句很短的日常回复。
+"""
 
 
-# ═══════════════════════════════════════════════════
-# 4. 拼装 system_prompt
-# ═══════════════════════════════════════════════════
 def build_system_prompt() -> str:
     return "\n\n".join(
         [
@@ -92,93 +226,557 @@ def build_system_prompt() -> str:
         ]
     )
 
-# ═══════════════════════════════════════════════════
-# 5. 输出清洗
-# ═══════════════════════════════════════════════════
 
-def clean_reply(text: str) -> str:
+# ═══════════════════════════════════════════════════
+# 输入消息处理
+# ═══════════════════════════════════════════════════
+def strip_cq_codes(raw: str) -> str:
+    if not raw:
+        return ""
+
+    text = raw
+    text = re.sub(r"\[CQ:at,qq=[^\]]+\]", "", text)
+    text = re.sub(r"\[CQ:image[^\]]*\]", "[图片]", text)
+    text = re.sub(r"\[CQ:face[^\]]*\]", "[表情]", text)
+    text = re.sub(r"\[CQ:mface[^\]]*\]", "[表情]", text)
+    text = re.sub(r"\[CQ:[^\]]+\]", "", text)
+
+    return text.strip()
+
+
+def extract_plain_text_from_event(data: dict[str, Any]) -> str:
+    message_obj = data.get("message")
+
+    if isinstance(message_obj, list):
+        parts = []
+
+        for seg in message_obj:
+            if not isinstance(seg, dict):
+                continue
+
+            seg_type = seg.get("type")
+            seg_data = seg.get("data", {}) or {}
+
+            if seg_type == "text":
+                parts.append(str(seg_data.get("text", "")))
+            elif seg_type == "image":
+                parts.append("[图片]")
+            elif seg_type in ("face", "mface"):
+                parts.append("[表情]")
+            elif seg_type == "at":
+                continue
+
+        return "".join(parts).strip()
+
+    raw = data.get("raw_message", data.get("message", ""))
+
+    if not isinstance(raw, str):
+        raw = repr(raw)
+
+    return strip_cq_codes(raw)
+
+
+def get_raw_message(data: dict[str, Any]) -> str:
+    raw = data.get("raw_message", "")
+    if isinstance(raw, str):
+        return raw
+
+    msg = data.get("message", "")
+    if isinstance(msg, str):
+        return msg
+
+    return repr(msg)
+
+
+def is_at_me(data: dict[str, Any]) -> bool:
+    self_id = data.get("self_id")
+    if self_id is None:
+        return False
+
+    self_id = str(self_id)
+    message_obj = data.get("message")
+
+    if isinstance(message_obj, list):
+        for seg in message_obj:
+            if not isinstance(seg, dict):
+                continue
+
+            if seg.get("type") != "at":
+                continue
+
+            seg_data = seg.get("data", {}) or {}
+            qq = str(seg_data.get("qq", ""))
+
+            if qq == self_id:
+                return True
+
+    raw = get_raw_message(data)
+    return f"[CQ:at,qq={self_id}]" in raw
+
+
+def has_bot_name(text: str) -> bool:
+    return any(name and name in text for name in BOT_NAMES)
+
+
+def should_reply(data: dict[str, Any], text: str) -> bool:
+    message_type = data.get("message_type", "private")
+
+    if message_type == "private":
+        return True
+
+    if message_type != "group":
+        return False
+
+    if GROUP_REPLY_MODE == "all":
+        return True
+
+    at_me = is_at_me(data)
+    name_called = has_bot_name(text)
+
+    if GROUP_REPLY_MODE == "at":
+        return at_me
+
+    if GROUP_REPLY_MODE == "name":
+        return name_called
+
+    return at_me or name_called
+
+
+def clean_user_text_for_agent(data: dict[str, Any], text: str) -> str:
+    result = text.strip()
+
+    for name in BOT_NAMES:
+        result = re.sub(rf"^\s*{re.escape(name)}\s*[，,：:\s]*", "", result)
+
+    if not result and data.get("message_type") == "group" and is_at_me(data):
+        result = "叫了你一下"
+
+    return result.strip()
+
+
+def get_sender_name(data: dict[str, Any]) -> str:
+    sender = data.get("sender", {}) or {}
+
+    return (
+        sender.get("card")
+        or sender.get("nickname")
+        or sender.get("user_id")
+        or data.get("user_id")
+        or "有人"
+    )
+
+
+def get_session_id(data: dict[str, Any]) -> str:
+    message_type = data.get("message_type", "private")
+    user_id = str(data.get("user_id", ""))
+
+    if message_type == "group" and data.get("group_id"):
+        return f"group:{data.get('group_id')}"
+
+    return f"private:{user_id}"
+
+
+def build_agent_task(data: dict[str, Any], user_text: str) -> str:
+    if data.get("message_type") == "group":
+        sender_name = get_sender_name(data)
+        return f"群聊里，{sender_name}说：{user_text}"
+
+    return user_text
+
+
+# ═══════════════════════════════════════════════════
+# 输出清洗 + 表情包处理
+# ═══════════════════════════════════════════════════
+def extract_meme_tag(text: str) -> Tuple[str, Optional[str]]:
+    if not isinstance(text, str):
+        text = str(text)
+
+    allowed = "|".join(re.escape(tag) for tag in MEME_TAGS.keys())
+    pattern = rf"\[表情:({allowed})\]"
+
+    match = re.search(pattern, text)
+    tag = match.group(1) if match else None
+
+    # 去掉所有 [表情:xxx]，避免标签发给 QQ 用户
+    clean_text = re.sub(r"\[表情:[^\]]+\]", "", text).strip()
+
+    return clean_text, tag
+
+
+def clean_reply_text(text: str) -> str:
+    if not isinstance(text, str):
+        text = str(text)
+
     text = text.strip()
+    text = text.replace("```", "")
 
-    # 去掉常见括号动作
-    for left, right in [("（", "）"), ("(", ")"), ("【", "】")]:
+    # 去掉括号动作，保留正常文字
+    bracket_pairs = [
+        ("（", "）"),
+        ("(", ")"),
+        ("【", "】"),
+    ]
+
+    for left, right in bracket_pairs:
         while left in text and right in text:
             start = text.find(left)
-            end = text.find(right, start)
+            end = text.find(right, start + 1)
+
             if end == -1:
                 break
-            text = text[:start] + text[end + 1:]
 
-    # 去掉多余换行，只保留第一行
-    text = text.splitlines()[0].strip()
+            inner = text[start + 1:end]
 
-    # 限制过长回复
-    if len(text) > 35:
-        text = text[:35].rstrip("，。,. ") + "…"
+            if len(inner) <= 30:
+                text = text[:start] + text[end + 1:]
+            else:
+                break
+
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+
+    if not lines:
+        return "嗯"
+
+    text = " ".join(lines[:2]).strip()
+    text = re.sub(r"^(姜亦衡|小姜|义恒|不知名小卒)\s*[：:]\s*", "", text).strip()
+
+    if len(text) > 45:
+        text = text[:45].rstrip("，。,.、 ") + "…"
 
     return text or "嗯"
 
+
+def pick_meme_file(tag: Optional[str]) -> Optional[Path]:
+    if not tag:
+        return None
+
+    folder = MEME_TAGS.get(tag)
+
+    if not folder or not folder.exists():
+        log_event(f"表情包目录不存在 — tag={tag}, folder={folder}")
+        return None
+
+    files = [
+        p
+        for p in folder.rglob("*")
+        if p.is_file() and p.suffix.lower() in IMAGE_SUFFIXES
+    ]
+
+    if not files:
+        log_event(f"表情包目录为空 — tag={tag}, folder={folder}")
+        return None
+
+    return random.choice(files).resolve()
+
+
+def meme_path_for_onebot(path: Path) -> str:
+    """
+    Python 在宿主机选图，NapCat 在 Docker 容器里发图。
+
+    宿主机路径：
+    /home/arch/Desktop/Dev/NapcatBot/memes/摸鱼/image2.png
+
+    容器内路径：
+    /app/memes/摸鱼/image2.png
+    """
+    resolved = path.resolve()
+
+    try:
+        rel_path = resolved.relative_to(MEME_DIR)
+        target_path = Path(NAPCAT_MEME_DIR) / rel_path
+    except ValueError:
+        target_path = resolved
+
+    if MEME_PATH_MODE == "file_uri":
+        return "file://" + str(target_path)
+
+    return str(target_path)
+
+
+def guess_meme_tag_from_context(user_text: str, reply_text: str) -> Optional[str]:
+    combined = f"{user_text} {reply_text}"
+
+    if any(k in combined for k in ["人机", "怪", "尴尬", "错话", "社死"]):
+        return "尴尬"
+
+    if any(k in combined for k in ["摸鱼", "上班", "工作", "加班", "报表", "客户", "下班"]):
+        return "摸鱼"
+
+    if any(k in combined for k in ["无语", "服了", "离谱"]):
+        return "无语"
+
+    if any(k in combined for k in ["不懂", "什么", "为啥", "为什么", "谁啊", "？", "?"]):
+        return "疑惑"
+
+    return None
+
+
+def can_send_meme(session_id: str, explicit: bool) -> bool:
+    now = datetime.now()
+    last = last_meme_time.get(session_id)
+
+    if last is not None:
+        delta = (now - last).total_seconds()
+        if delta < MEME_COOLDOWN_SECONDS:
+            return False
+
+    if explicit:
+        return True
+
+    return random.random() < AUTO_MEME_PROBABILITY
+
+
+def build_message_segments(
+    model_output: str,
+    user_text: str,
+    session_id: str,
+) -> list[dict[str, Any]]:
+    raw_text, explicit_tag = extract_meme_tag(model_output)
+    clean_text = clean_reply_text(raw_text)
+
+    tag = explicit_tag
+    explicit = tag is not None
+
+    if tag is None:
+        tag = guess_meme_tag_from_context(user_text, clean_text)
+
+    meme_file = None
+
+    if tag and can_send_meme(session_id, explicit=explicit):
+        meme_file = pick_meme_file(tag)
+
+    segments: list[dict[str, Any]] = []
+
+    if clean_text:
+        segments.append(
+            {
+                "type": "text",
+                "data": {
+                    "text": clean_text,
+                },
+            }
+        )
+
+    if meme_file:
+        onebot_file = meme_path_for_onebot(meme_file)
+
+        log_event(
+            f"准备发送表情包 — tag={tag}, "
+            f"host_path={meme_file}, napcat_path={onebot_file}"
+        )
+
+        segments.append(
+            {
+                "type": "image",
+                "data": {
+                    "file": onebot_file,
+                    "name": meme_file.name,
+                    "summary": f"[{tag}]",
+                },
+            }
+        )
+
+        last_meme_time[session_id] = datetime.now()
+
+    if not segments:
+        segments.append(
+            {
+                "type": "text",
+                "data": {
+                    "text": "嗯",
+                },
+            }
+        )
+
+    return segments
+
+
 # ═══════════════════════════════════════════════════
-# 6. WebSocket 消息处理
+# 发送动作
+# ═══════════════════════════════════════════════════
+def build_send_msg_action(
+    data: dict[str, Any],
+    message_segments: list[dict[str, Any]],
+) -> dict[str, Any]:
+    message_type = data.get("message_type", "private")
+    user_id = str(data.get("user_id", ""))
+
+    params: dict[str, Any] = {
+        "message": message_segments,
+        "auto_escape": False,
+    }
+
+    if message_type == "group" and data.get("group_id"):
+        params["message_type"] = "group"
+        params["group_id"] = str(data["group_id"])
+    else:
+        params["message_type"] = "private"
+        params["user_id"] = user_id
+
+    return {
+        "action": "send_msg",
+        "params": params,
+    }
+
+
+async def send_action(websocket, action: dict[str, Any]) -> None:
+    action["echo"] = f"echo-{datetime.now().timestamp()}-{random.randint(1000, 9999)}"
+    await websocket.send(json.dumps(action, ensure_ascii=False))
+    log_event(f"已发送 action — {preview_text(action, 400)}")
+
+
+async def send_segments_split(
+    websocket,
+    data: dict[str, Any],
+    message_segments: list[dict[str, Any]],
+) -> None:
+    """
+    文字和图片分开发。
+    这样图片失败也不影响文字对话。
+    """
+    text_segments = [seg for seg in message_segments if seg.get("type") == "text"]
+    image_segments = [seg for seg in message_segments if seg.get("type") == "image"]
+
+    if text_segments:
+        text_reply = build_send_msg_action(data, text_segments)
+        await send_action(websocket, text_reply)
+
+    # 稍微等一下，更像真人，也避免 NapCat 连续动作太快
+    if text_segments and image_segments:
+        await asyncio.sleep(random.uniform(0.4, 1.1))
+
+    if image_segments:
+        image_reply = build_send_msg_action(data, image_segments)
+        await send_action(websocket, image_reply)
+
+
+# ═══════════════════════════════════════════════════
+# Agent 管理
+# ═══════════════════════════════════════════════════
+async def get_or_create_agent(session_id: str) -> BaseAgent:
+    agent = agents.get(session_id)
+
+    if agent is None:
+        agent = BaseAgent(
+            config=ModelConfig.from_env(),
+            agent_id=f"TZ-{session_id}",
+            system_prompt=build_system_prompt(),
+            enable_tools=False,
+        )
+        agents[session_id] = agent
+        log_event(f"创建会话 — session_id={session_id}")
+
+    return agent
+
+
+# ═══════════════════════════════════════════════════
+# WebSocket 主处理
 # ═══════════════════════════════════════════════════
 async def recv_msg(websocket):
     remote = getattr(websocket, "remote_address", None)
     request = getattr(websocket, "request", None)
     path = getattr(request, "path", None)
+
     log_event(f"连接建立 — remote={remote}, path={path}")
 
     try:
         async for raw in websocket:
-            data = json.loads(raw)
+            try:
+                data = json.loads(raw)
+            except Exception:
+                log_event(f"收到非 JSON 消息 — raw={preview_text(raw, 300)}")
+                continue
 
             if isinstance(data, list):
+                if not data:
+                    continue
                 data = data[0]
 
+            if not isinstance(data, dict):
+                log_event(f"收到未知数据 — {preview_text(data, 300)}")
+                continue
+
+            # 非 message 的事件，很多时候就是 NapCat 对 action 的响应
             if data.get("post_type") != "message":
+                if "status" in data or "retcode" in data or "echo" in data:
+                    log_event(f"NapCat 动作响应 — {preview_text(data, 800)}")
+                else:
+                    log_event(f"收到非消息事件 — {preview_text(data, 500)}")
                 continue
 
-            message = data.get("raw_message", data.get("message", ""))
-            if not message:
+            # 避免机器人处理自己发出的消息
+            self_id = str(data.get("self_id", ""))
+            user_id = str(data.get("user_id", ""))
+
+            if self_id and user_id and self_id == user_id:
                 continue
 
-            user_id = str(data["user_id"])
-            log_event(f"收到消息 — user_id={user_id}, message={preview_text(message, 80)}")
+            message_type = data.get("message_type", "private")
+            plain_text = extract_plain_text_from_event(data)
+
+            if not should_reply(data, plain_text):
+                log_event(
+                    f"忽略消息 — mode={GROUP_REPLY_MODE}, "
+                    f"type={message_type}, text={preview_text(plain_text, 100)}"
+                )
+                continue
+
+            user_text = clean_user_text_for_agent(data, plain_text)
+
+            if not user_text:
+                continue
+
+            session_id = get_session_id(data)
+            task = build_agent_task(data, user_text)
+
+            log_event(
+                f"收到消息 — session_id={session_id}, "
+                f"type={message_type}, user_id={user_id}, "
+                f"text={preview_text(user_text, 100)}"
+            )
 
             try:
-                agent = agents.get(user_id)
-                if agent is None:
-                    agent = BaseAgent(
-                        config=ModelConfig.from_env(),
-                        agent_id=f"TZ-{user_id}",
-                        system_prompt=build_system_prompt(),
-                        enable_tools=False,
-                    )
-                    agents[user_id] = agent
-                    log_event(f"创建用户会话 — user_id={user_id}, agent_id=TZ-{user_id}")
+                agent = await get_or_create_agent(session_id)
 
-                log_event(f"开始处理消息 — user_id={user_id}, text={preview_text(message, 80)}")
-                # 动态更新 system_prompt（场景随时间变化）
+                # 每次更新当前时间
                 agent.system_prompt = build_system_prompt()
-                result = await agent.runtime(task=message)
-                reply_text = clean_reply(result or "嗯")
-                log_event(f"处理完成 — user_id={user_id}, reply={preview_text(reply_text, 80)}")
-            except Exception as e:
-                log_event(f"处理出错 — user_id={user_id}, error={e!r}")
-                traceback.print_exc()
-                reply_text = f"处理出错：{e}"
 
-            reply = {
-                "action": "send_msg",
-                "params": {
-                    "user_id": user_id,
-                    "message": reply_text,
-                },
-            }
-            await websocket.send(json.dumps(reply))
-            log_event(f"已发送回复 — user_id={user_id}, body={preview_text(reply_text, 80)}")
+                log_event(f"开始处理 — session_id={session_id}, task={preview_text(task, 120)}")
+                result = await agent.runtime(task=task)
+
+                model_output = result or "嗯"
+                message_segments = build_message_segments(
+                    model_output=model_output,
+                    user_text=user_text,
+                    session_id=session_id,
+                )
+
+                log_event(
+                    f"处理完成 — session_id={session_id}, "
+                    f"model={preview_text(model_output, 150)}, "
+                    f"segments={preview_text(message_segments, 300)}"
+                )
+
+            except Exception as e:
+                log_event(f"处理出错 — session_id={session_id}, error={e!r}")
+                traceback.print_exc()
+
+                message_segments = [
+                    {
+                        "type": "text",
+                        "data": {
+                            "text": "刚才卡了一下",
+                        },
+                    }
+                ]
+
+            await send_segments_split(websocket, data, message_segments)
+
     except Exception as e:
         log_event(f"连接异常关闭 — remote={remote}, error={e!r}")
         traceback.print_exc()
         raise
+
     finally:
         log_event(f"连接结束 — remote={remote}")
 
@@ -193,6 +791,14 @@ async def log_ws_request(connection, request):
 
 
 async def main():
+    ensure_meme_dirs()
+
+    log_event(f"表情包宿主机目录：{MEME_DIR}")
+    log_event(f"表情包 NapCat 容器目录：{NAPCAT_MEME_DIR}")
+    log_event(f"表情包路径模式：{MEME_PATH_MODE}")
+    log_event(f"群聊触发模式：{GROUP_REPLY_MODE}")
+    log_event(f"机器人名称触发词：{BOT_NAMES}")
+
     try:
         async with websockets.serve(
             recv_msg,
@@ -202,9 +808,14 @@ async def main():
         ):
             log_event(f"机器人启动：ws://{WS_HOST}:{WS_PORT}")
             await asyncio.Future()
+
     finally:
-        for agent in agents.values():
-            await agent.shutdown()
+        for session_id, agent in agents.items():
+            try:
+                await agent.shutdown()
+                log_event(f"会话已关闭 — session_id={session_id}")
+            except Exception as e:
+                log_event(f"关闭会话失败 — session_id={session_id}, error={e!r}")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,2400 @@
+{
+    "_comment": "https://qqmc.woa.com/manage?projectId=10006&env=online&applicationId=10071&configSetId=106593",
+    "shouldFetchArkToMarkdownMsgTemplate": true,
+    "useMarkdownRender": 1,
+    "supportTemplates": [
+        "md_template.com.tencent.miniapp.lua;miniapp",
+        "md_template.com.tencent.plaintext.lua;feed",
+        "md_template.com.tencent.feed.lua;feed",
+        "md_template.com.tencent.contact.lua;contact",
+        "md_template.com.tencent.video.lua;video",
+        "md_template.com.tencent.tuwen.lua;news",
+        "md_template.com.tencent.activity.md;activity",
+        "md_template.com.tencent.public.function.pay;message",
+        "md_template.com.tencent.public.function.warn;message",
+        "md_template.com.tencent.public.game.list;message",
+        "md_template.com.tencent.public.game.mix;message",
+        "md_template.com.tencent.public.game.simple;message",
+        "md_template.com.tencent.public.game.video;message",
+        "md_template.com.tencent.public.marketing.list;message",
+        "md_template.com.tencent.public.marketing.singletu;message",
+        "md_template.com.tencent.public.marketing.tubutton;message",
+        "md_template.com.tencent.public.subscribe.standard;message",
+        "md_template.com.tencent.public.subscribe.tuwen;message"
+    ],
+    "bizName": [],
+    "bizNameV2": [
+        "groupalbum.upload",
+        "groupalbum.interact",
+        "qzone.shuoshuosharepicture",
+        "qzone.albumshare",
+        "qzone.diarysharewithpicture",
+        "qzone.shuoshuoshareonlytext",
+        "qqcircle.main_page_share",
+        "cardshare.cardshare",
+        "bot.card_share",
+        "smallworld.feed",
+        "qzone.vedioshare",
+        "pindao.picforum",
+        "pindao.textforum",
+        "pindao.home",
+        "miniapp.nativeshare",
+        "miniapp.centershare",
+        "babyq.recommendpymyfriend",
+        "qun.share",
+        "group.card",
+        "qqconnect.sdkshare",
+        "qq_signin.share",
+        "xsj.ai_draw_robot",
+        "qbox.share",
+        "gamecenter.tuwen_new",
+        "qevent.eventshare",
+        "gamecenter.beta_game_help",
+        "SpringFestival.sharing",
+        "tianxuan.imgJumpArk",
+        "qqgxh.miniappshare",
+        "tdocs.miniappshare",
+        "qqrelation.blessing",
+        "friends_mutualmark.sign_in",
+        "ai_persona.moment",
+        "qzone.memory-activity-1",
+        "qzone.memory-activity-2",
+        "qzone.photo_restoration",
+        "gamecenter.metadream_tofu",
+        "wanbaH5miniapp.miniprograms",
+        "wzry.xcx",
+        "gamecenter.robotshare",
+        "zhiji.vedio",
+        "gamecenter.nfsmarkshare",
+        "weishi.videoshare",
+        "xsj.share_feed",
+        "videocircle.spring_activity",
+        "shadow.qzone_share_video",
+        "gamecenter.sgame-highlight",
+        "group_album.upload",
+        "qun.invite"
+    ],
+    "needPreloadBizsrcList": [
+        {
+            "appName": "com.tencent.tuwen.lua",
+            "bizName": "qun.invite"
+        },
+        {
+            "appName": "com.tencent.miniapp.lua",
+            "bizName": "groupalbum.upload"
+        },
+        {
+            "appName": "com.tencent.tuwen.lua",
+            "bizName": "groupalbum.interact"
+        },
+        {
+            "appName": "com.tencent.miniapp.lua",
+            "bizName": "qzone.shuoshuosharepicture"
+        },
+        {
+            "appName": "com.tencent.miniapp.lua",
+            "bizName": "qzone.albumshare"
+        },
+        {
+            "appName": "com.tencent.miniapp.lua",
+            "bizName": "qzone.diarysharewithpicture"
+        },
+        {
+            "appName": "com.tencent.tuwen.lua",
+            "bizName": "qzone.shuoshuoshareonlytext"
+        },
+        {
+            "appName": "com.tencent.contact.lua",
+            "bizName": "qqcircle.main_page_share"
+        },
+        {
+            "appName": "com.tencent.contact.lua",
+            "bizName": "cardshare.cardshare"
+        },
+        {
+            "appName": "com.tencent.contact.lua",
+            "bizName": "bot.card_share"
+        },
+        {
+            "appName": "com.tencent.video.lua",
+            "bizName": "smallworld.feed"
+        },
+        {
+            "appName": "com.tencent.miniapp.lua",
+            "bizName": "qzone.vedioshare"
+        },
+        {
+            "appName": "com.tencent.feed.lua",
+            "bizName": "pindao.picforum"
+        },
+        {
+            "appName": "com.tencent.plaintext.lua",
+            "bizName": "pindao.textforum"
+        },
+        {
+            "appName": "com.tencent.contact.lua",
+            "bizName": "pindao.home"
+        },
+        {
+            "appName": "com.tencent.miniapp.lua",
+            "bizName": "miniapp.nativeshare"
+        },
+        {
+            "appName": "com.tencent.contact.lua",
+            "bizName": "miniapp.centershare"
+        },
+        {
+            "appName": "com.tencent.contact.lua",
+            "bizName": "babyq.recommendpymyfriend"
+        },
+        {
+            "appName": "com.tencent.contact.lua",
+            "bizName": "qun.share"
+        },
+        {
+            "appName": "com.tencent.contact.lua",
+            "bizName": "group.card"
+        },
+        {
+            "appName": "com.tencent.tuwen.lua",
+            "bizName": "qqconnect.sdkshare"
+        },
+        {
+            "appName": "com.tencent.tuwen.lua",
+            "bizName": "qq_signin.share"
+        },
+        {
+            "appName": "com.tencent.miniapp.lua",
+            "bizName": "tdocs.sharedoc"
+        },
+        {
+            "appName": "com.tencent.miniapp.lua",
+            "bizName": "xsj.ai_draw_robot"
+        },
+        {
+            "appName": "com.tencent.miniapp.lua",
+            "bizName": "qbox.share"
+        },
+        {
+            "appName": "com.tencent.miniapp.lua",
+            "bizName": "gamecenter.tuwen_new"
+        },
+        {
+            "appName": "com.tencent.miniapp.lua",
+            "bizName": "qevent.eventshare"
+        },
+        {
+            "appName": "com.tencent.miniapp.lua",
+            "bizName": "gamecenter.beta_game_help"
+        },
+        {
+            "appName": "com.tencent.miniapp.lua",
+            "bizName": "SpringFestival.sharing"
+        },
+        {
+            "appName": "com.tencent.miniapp.lua",
+            "bizName": "tianxuan.imgJumpArk"
+        },
+        {
+            "appName": "com.tencent.miniapp.lua",
+            "bizName": "qqgxh.miniappshare"
+        },
+        {
+            "appName": "com.tencent.miniapp.lua",
+            "bizName": "tdocs.miniappshare"
+        },
+        {
+            "appName": "com.tencent.miniapp.lua",
+            "bizName": "qqrelation.blessing"
+        },
+        {
+            "appName": "com.tencent.miniapp.lua",
+            "bizName": "friends_mutualmark.sign_in"
+        },
+        {
+            "appName": "com.tencent.miniapp.lua",
+            "bizName": "ai_persona.moment"
+        },
+        {
+            "appName": "com.tencent.miniapp.lua",
+            "bizName": "qzone.memory-activity-1"
+        },
+        {
+            "appName": "com.tencent.miniapp.lua",
+            "bizName": "qzone.memory-activity-2"
+        },
+        {
+            "appName": "com.tencent.miniapp.lua",
+            "bizName": "qzone.photo_restoration"
+        },
+        {
+            "appName": "com.tencent.miniapp.lua",
+            "bizName": "gamecenter.metadream_tofu"
+        },
+        {
+            "appName": "com.tencent.miniapp.lua",
+            "bizName": "wanbaH5miniapp.miniprograms"
+        },
+        {
+            "appName": "com.tencent.miniapp.lua",
+            "bizName": "wzry.xcx"
+        },
+        {
+            "appName": "com.tencent.video.lua",
+            "bizName": "gamecenter.robotshare"
+        },
+        {
+            "appName": "com.tencent.video.lua",
+            "bizName": "zhiji.vedio"
+        },
+        {
+            "appName": "com.tencent.video.lua",
+            "bizName": "gamecenter.nfsmarkshare"
+        },
+        {
+            "appName": "com.tencent.video.lua",
+            "bizName": "weishi.videoshare"
+        },
+        {
+            "appName": "com.tencent.video.lua",
+            "bizName": "xsj.share_feed"
+        },
+        {
+            "appName": "com.tencent.video.lua",
+            "bizName": "videocircle.spring_activity"
+        },
+        {
+            "appName": "com.tencent.video.lua",
+            "bizName": "shadow.qzone_share_video"
+        },
+        {
+            "appName": "com.tencent.tuwen.lua",
+            "bizName": "gamecenter.sgame-highlight"
+        },
+        {
+            "appName": "com.tencent.feed.lua",
+            "bizName": "group_album.upload"
+        }
+    ],
+    "notNeedCheckWhite": [
+        "testFeed.lua",
+        "test.plaintext"
+    ],
+    "translateRules": {
+        "md_template.com.tencent.plaintext.lua;feed": {
+            "attributes": [
+                {},
+                {
+                    "viewId": "contentText",
+                    "backgroundColor": "bubble_guest"
+                }
+            ]
+        },
+        "md_template.com.tencent.feed.lua;feed": {
+            "layout": [
+                {
+                    "viewId": "app",
+                    "layout": [
+                        {
+                            "viewId": "picDetail",
+                            "layout": [
+                                {},
+                                {
+                                    "viewId": "morePicInfo",
+                                    "marginLeft": 160,
+                                    "layout": [
+                                        {
+                                            "viewId": "morePicBkg",
+                                            "marginLeft": 0
+                                        }
+                                    ]
+                                },
+                                {
+                                    "viewId": "videoInfo",
+                                    "layout": [
+                                        {
+                                            "viewId": "videoIcon",
+                                            "marginLeft": 154
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        {},
+                        {
+                            "viewId": "detail",
+                            "layout": [
+                                {
+                                    "viewId": "topPadding",
+                                    "viewType": "view"
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ],
+            "attributes": [
+                {},
+                {
+                    "viewId": "desc",
+                    "standardCSSStyle": {
+                        "-webkit-font-smoothing": "antialiased"
+                    }
+                },
+                {
+                    "viewId": "morePicInfo",
+                    "standardCSSStyle": {
+                        "display": "none"
+                    }
+                }
+            ]
+        }
+    },
+    "pcTemplates": {
+        "md_template.com.tencent.video.lua;video": {
+            "version": 1,
+            "layout": {
+                "viewId": "app",
+                "width": 208,
+                "height": -2,
+                "layout": [
+                    {
+                        "viewId": "background",
+                        "viewType": "image",
+                        "width": 208,
+                        "height": 278
+                    },
+                    {
+                        "viewId": "image",
+                        "viewType": "image",
+                        "gravity": "center",
+                        "height": 48,
+                        "width": 48
+                    },
+                    {
+                        "viewId": "tailRow",
+                        "direction": "horizontal",
+                        "gravity": "bottom",
+                        "width": -1,
+                        "height": 278,
+                        "layout": [
+                            {
+                                "viewId": "maskLayer",
+                                "gravity": "bottom",
+                                "width": -1,
+                                "height": 28,
+                                "radius": "0px 0px 10px 10px",
+                                "layout": [
+                                    {
+                                        "viewId": "maskLayerImage",
+                                        "viewType": "image",
+                                        "height": -1,
+                                        "width": -1
+                                    },
+                                    {
+                                        "viewId": "tail",
+                                        "gravity": "bottom",
+                                        "direction": "horizontal",
+                                        "height": 28,
+                                        "width": -1,
+                                        "layout": [
+                                            {
+                                                "viewId": "tailIcon",
+                                                "viewType": "image",
+                                                "gravity": "centerVertical",
+                                                "marginRight": 4,
+                                                "marginLeft": 12,
+                                                "height": 12,
+                                                "width": 12
+                                            },
+                                            {
+                                                "viewId": "tailText",
+                                                "viewType": "text",
+                                                "gravity": "centerVertical",
+                                                "marginRight": 12,
+                                                "width": -1,
+                                                "height": -2
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            "attributes": {
+                "viewId": "app",
+                "radius": 10,
+                "clickable": true,
+                "schema": "$$jumpURL",
+                "pcSchema": "$$pcJumpUrl",
+                "event": {
+                    "init": {
+                        "resetLayout": {
+                            "needReset": "$$isHorizontal",
+                            "width": 226,
+                            "height": -2
+                        }
+                    }
+                },
+                "attributes": [
+                    {
+                        "viewId": "background",
+                        "src": "$$preview",
+                        "event": {
+                            "init": {
+                                "resetLayout": {
+                                    "needReset": "$$isHorizontal",
+                                    "height": -2,
+                                    "width": 226,
+                                    "ratio": 1.315
+                                }
+                            }
+                        }
+                    },
+                    {
+                        "viewId": "image",
+                        "src": "https://static-res.qq.com/static-res/ark/template/demo/play_icon.png",
+                        "contentMode": 2,
+                        "radius": 24
+                    },
+                    {
+                        "viewId": "tailRow",
+                        "event": {
+                            "init": {
+                                "resetLayout": {
+                                    "needReset": "$$isHorizontal",
+                                    "height": 172,
+                                    "width": 226,
+                                    "ratio": 1.315
+                                }
+                            }
+                        },
+                        "attributes": [
+                            {
+                                "viewId": "maskLayer",
+                                "attributes": [
+                                    {
+                                        "viewId": "maskLayerImage",
+                                        "src": "https://static-res.qq.com/static-res/ark/template/demo/video_bottom_cover.png"
+                                    },
+                                    {
+                                        "viewId": "tail",
+                                        "attributes": [
+                                            {
+                                                "viewId": "tailIcon",
+                                                "src": "$$sourcelogo",
+                                                "contentMode": 2,
+                                                "radius": 2
+                                            },
+                                            {
+                                                "viewId": "tailText",
+                                                "text": "$$nickname",
+                                                "textSize": 12,
+                                                "textColor": "text_allwhite_primary",
+                                                "maxLine": 1
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        },
+        "md_template.com.tencent.public.game.mix;message": {
+            "version": 1,
+            "isSupportUpdate": true,
+            "templateId": "com.tencent.public.game.mix",
+            "layout": {
+                "viewId": "app",
+                "width": -1,
+                "height": -2,
+                "direction": "vertical",
+                "layout": [
+                    {
+                        "viewId": "header",
+                        "direction": "horizontal",
+                        "marginLeft": 12,
+                        "marginRight": 12,
+                        "height": -2,
+                        "width": -1,
+                        "layout": [
+                            {
+                                "viewId": "appIcon",
+                                "viewType": "image",
+                                "marginTop": 12,
+                                "marginBottom": 12,
+                                "height": 20,
+                                "width": 20,
+                                "gravity": "centerVertical"
+                            },
+                            {
+                                "viewId": "appName",
+                                "viewType": "text",
+                                "height": -2,
+                                "width": -1,
+                                "marginLeft": 6,
+                                "marginTop": 12,
+                                "marginBottom": 12,
+                                "gravity": "centerVertical"
+                            },
+                            {
+                                "viewId": "more",
+                                "height": -2,
+                                "width": 32,
+                                "marginTop": 10,
+                                "marginBottom": 10,
+                                "gravity": "right|centerVertical",
+                                "layout": [
+                                    {
+                                        "viewId": "moreIcon",
+                                        "viewType": "image",
+                                        "height": 20,
+                                        "width": 20,
+                                        "gravity": "right|centerVertical"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "viewId": "divider1",
+                        "viewType": "view",
+                        "height": 0.5,
+                        "width": -1,
+                        "marginLeft": 0,
+                        "marginRight": 0
+                    },
+                    {
+                        "viewId": "titleArea",
+                        "direction": "horizontal",
+                        "marginLeft": 12,
+                        "marginTop": 16,
+                        "marginRight": 12,
+                        "height": -2,
+                        "width": -1,
+                        "layout": [
+                            {
+                                "viewId": "title",
+                                "viewType": "text",
+                                "height": -2,
+                                "width": -1,
+                                "marginTop": 1,
+                                "marginBottom": 1,
+                                "gravity": "centerVertical"
+                            }
+                        ]
+                    },
+                    {
+                        "viewId": "contentArea",
+                        "direction": "horizontal",
+                        "marginLeft": 12,
+                        "marginTop": 12,
+                        "marginRight": 12,
+                        "height": -2,
+                        "width": -1,
+                        "layout": [
+                            {
+                                "viewId": "contentArea1",
+                                "width": 92,
+                                "height": -2,
+                                "direction": "vertical",
+                                "gravity": "centerVertical",
+                                "layout": [
+                                    {
+                                        "viewId": "contentTitle1",
+                                        "viewType": "text",
+                                        "width": -2,
+                                        "height": -2
+                                    },
+                                    {
+                                        "viewId": "contentDes1",
+                                        "viewType": "text",
+                                        "marginTop": 4,
+                                        "width": -2,
+                                        "height": -2
+                                    }
+                                ]
+                            },
+                            {
+                                "viewId": "contentArea2",
+                                "marginLeft": 24,
+                                "width": 92,
+                                "height": -2,
+                                "direction": "vertical",
+                                "gravity": "centerVertical",
+                                "layout": [
+                                    {
+                                        "viewId": "contentTitle2",
+                                        "viewType": "text",
+                                        "width": -2,
+                                        "height": -2
+                                    },
+                                    {
+                                        "viewId": "contentDes2",
+                                        "viewType": "text",
+                                        "marginTop": 4,
+                                        "width": -2,
+                                        "height": -2
+                                    }
+                                ]
+                            },
+                            {
+                                "viewId": "contentArea3",
+                                "marginLeft": 24,
+                                "width": 92,
+                                "height": -2,
+                                "gravity": "centerVertical",
+                                "direction": "vertical",
+                                "layout": [
+                                    {
+                                        "viewId": "contentTitle3",
+                                        "viewType": "text",
+                                        "width": -2,
+                                        "height": -2
+                                    },
+                                    {
+                                        "viewId": "contentDes3",
+                                        "viewType": "text",
+                                        "marginTop": 4,
+                                        "width": -2,
+                                        "height": -2
+                                    }
+                                ]
+                            },
+                            {
+                                "viewId": "contentImage",
+                                "marginLeft": 12,
+                                "width": 48,
+                                "height": 48,
+                                "gravity": "right",
+                                "layout": [
+                                    {
+                                        "viewId": "image",
+                                        "viewType": "image",
+                                        "width": 48,
+                                        "height": 48
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "viewId": "time",
+                        "viewType": "text",
+                        "width": -2,
+                        "height": -2,
+                        "marginTop": 13,
+                        "marginLeft": 12,
+                        "marginRight": 12,
+                        "marginBottom": 17
+                    }
+                ]
+            },
+            "attributes": {
+                "viewId": "app",
+                "radius": 8,
+                "backgroundColor": "fill_light_primary",
+                "clickable": true,
+                "schema": "$$jumpUrl",
+                "attributes": [
+                    {
+                        "viewId": "header",
+                        "schema": "$$appJumpUrl",
+                        "event": {
+                            "init": {
+                                "visibleCtr": {
+                                    "visible": "$$appIcon",
+                                    "visibleBehave": "GONE",
+                                    "src": "$$appIcon"
+                                }
+                            }
+                        },
+                        "attributes": [
+                            {
+                                "viewId": "appIcon",
+                                "src": "$$appIcon",
+                                "radius": 10
+                            },
+                            {
+                                "viewId": "appName",
+                                "text": "$$appName",
+                                "textSize": 14,
+                                "fontBold": true,
+                                "textColor": "text_primary",
+                                "maxLine": 1
+                            },
+                            {
+                                "viewId": "more",
+                                "attributes": [
+                                    {
+                                        "viewId": "moreIcon",
+                                        "src": "$$moreIcon",
+                                        "standardCSSStyle": {
+                                            "position": "relative"
+                                        }
+                                    }
+                                ],
+                                "clickable": true,
+                                "schema": "$$moreJump",
+                                "event": {
+                                    "init": {
+                                        "visibleCtr": {
+                                            "visible": "$$moreJump",
+                                            "visibleBehave": "GONE",
+                                            "src": "$$moreJump"
+                                        }
+                                    }
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "viewId": "divider1",
+                        "event": {
+                            "init": {
+                                "visibleCtr": {
+                                    "visible": "$$appIcon",
+                                    "visibleBehave": "GONE",
+                                    "src": "$$appIcon"
+                                }
+                            }
+                        },
+                        "backgroundColor": "border_standard"
+                    },
+                    {
+                        "viewId": "titleArea",
+                        "attributes": [
+                            {
+                                "viewId": "title",
+                                "text": "$$title",
+                                "textSize": 16,
+                                "textColor": "bubble_guest_text_primary",
+                                "fontBold": true,
+                                "maxLine": 2
+                            }
+                        ]
+                    },
+                    {
+                        "viewId": "contentArea",
+                        "attributes": [
+                            {
+                                "viewId": "contentArea1",
+                                "attributes": [
+                                    {
+                                        "viewId": "contentTitle1",
+                                        "text": "$$contentTitle1",
+                                        "textColor": "text_primary",
+                                        "maxLine": 1,
+                                        "textSize": 12
+                                    },
+                                    {
+                                        "viewId": "contentDes1",
+                                        "text": "$$contentDes1",
+                                        "textColor": "text_primary",
+                                        "maxLine": 1,
+                                        "textSize": 20,
+                                        "fontBold": true
+                                    }
+                                ],
+                                "standardCSSStyle": {
+                                    "alignItems": "flex-start"
+                                }
+                            },
+                            {
+                                "viewId": "contentArea2",
+                                "attributes": [
+                                    {
+                                        "viewId": "contentTitle2",
+                                        "text": "$$contentTitle2",
+                                        "textColor": "text_primary",
+                                        "maxLine": 1,
+                                        "textSize": 12
+                                    },
+                                    {
+                                        "viewId": "contentDes2",
+                                        "text": "$$contentDes2",
+                                        "textColor": "text_primary",
+                                        "maxLine": 1,
+                                        "textSize": 20,
+                                        "fontBold": true
+                                    }
+                                ],
+                                "standardCSSStyle": {
+                                    "alignItems": "flex-start"
+                                }
+                            },
+                            {
+                                "viewId": "contentArea3",
+                                "attributes": [
+                                    {
+                                        "viewId": "contentTitle3",
+                                        "text": "$$contentTitle3",
+                                        "textColor": "text_primary",
+                                        "maxLine": 1,
+                                        "textSize": 12
+                                    },
+                                    {
+                                        "viewId": "contentDes3",
+                                        "text": "$$contentDes3",
+                                        "textColor": "text_primary",
+                                        "maxLine": 1,
+                                        "textSize": 20,
+                                        "fontBold": true
+                                    }
+                                ],
+                                "standardCSSStyle": {
+                                    "alignItems": "flex-start"
+                                }
+                            },
+                            {
+                                "viewId": "contentImage",
+                                "event": {
+                                    "init": {
+                                        "visibleCtr": {
+                                            "visible": "$$image",
+                                            "visibleBehave": "GONE",
+                                            "src": "$$image"
+                                        }
+                                    }
+                                },
+                                "attributes": [
+                                    {
+                                        "viewId": "image",
+                                        "src": "$$image",
+                                        "radius": 6
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "viewId": "time",
+                        "text": "$$time",
+                        "textSize": 12,
+                        "textColor": "text_secondary",
+                        "maxLine": 1,
+                        "standardCSSStyle": {
+                            "alignSelf": "flex-start"
+                        }
+                    }
+                ]
+            }
+        },
+        "md_template.com.tencent.public.marketing.singletu;message": {
+            "version": 1,
+            "templateId": "com.tencent.public.marketing.singletu",
+            "isPublicAccountTemplate": true,
+            "layout": {
+                "viewId": "app",
+                "width": -1,
+                "height": -2,
+                "direction": "vertical",
+                "layout": [
+                    {
+                        "viewId": "header",
+                        "height": -2,
+                        "width": -1,
+                        "layout": [
+                            {
+                                "viewId": "image",
+                                "viewType": "image",
+                                "direction": "vertical",
+                                "height": -2,
+                                "width": -1,
+                                "ratio": 1.8,
+                                "gravity": "centerHorizontal"
+                            },
+                            {
+                                "viewId": "imageMask",
+                                "viewType": "view",
+                                "gravity": "bottom",
+                                "height": -2,
+                                "width": -1,
+                                "ratio": 7
+                            },
+                            {
+                                "viewId": "imageDes",
+                                "viewType": "text",
+                                "height": -2,
+                                "width": -1,
+                                "marginLeft": 16,
+                                "marginRight": 16,
+                                "marginBottom": 16,
+                                "gravity": "bottom"
+                            }
+                        ]
+                    },
+                    {
+                        "viewId": "operationItem1",
+                        "height": -2,
+                        "width": -1,
+                        "marginRight": 16,
+                        "marginLeft": 16,
+                        "marginBottom": 16,
+                        "marginTop": 16,
+                        "direction": "vertical",
+                        "layout": [
+                            {
+                                "viewId": "operationTitle1",
+                                "viewType": "text",
+                                "height": -2,
+                                "width": -1
+                            },
+                            {
+                                "viewId": "operationDes1",
+                                "viewType": "text",
+                                "marginTop": 6,
+                                "height": -2,
+                                "width": -1
+                            }
+                        ]
+                    }
+                ]
+            },
+            "attributes": {
+                "viewId": "app",
+                "radius": 12,
+                "backgroundColor": "fill_light_primary",
+                "clickable": true,
+                "schema": "$$jumpUrl",
+                "attributes": [
+                    {
+                        "viewId": "header",
+                        "event": {
+                            "init": {
+                                "visibleCtr": {
+                                    "visible": "$$imageUrl",
+                                    "visibleBehave": "GONE",
+                                    "src": "$$imageUrl"
+                                }
+                            }
+                        },
+                        "attributes": [
+                            {
+                                "viewId": "image",
+                                "src": "$$imageUrl",
+                                "contentMode": 2,
+                                "ratio": 1.8,
+                                "standardCSSStyle": {
+                                    "borderRadius": "12px 12px 0 0"
+                                }
+                            },
+                            {
+                                "viewId": "imageMask",
+                                "contentMode": 2
+                            },
+                            {
+                                "viewId": "imageDes",
+                                "text": "$$imageDes",
+                                "textColor": "text_white",
+                                "textSize": 16,
+                                "maxLine": 1,
+                                "fontBold": 500
+                            }
+                        ]
+                    },
+                    {
+                        "viewId": "operationItem1",
+                        "event": {
+                            "init": {
+                                "visibleCtr": {
+                                    "visible": "$$operationTitle1",
+                                    "visibleBehave": "GONE",
+                                    "src": "$$operationTitle1"
+                                }
+                            }
+                        },
+                        "attributes": [
+                            {
+                                "viewId": "operationTitle1",
+                                "text": "$$operationTitle1",
+                                "textColor": "text_primary",
+                                "textSize": 16,
+                                "maxLine": 1,
+                                "fontBold": 500,
+                                "standardCSSStyle": {
+                                    "lineHeight": "24px"
+                                }
+                            },
+                            {
+                                "viewId": "operationDes1",
+                                "text": "$$operationDes1",
+                                "textColor": "text_secondary",
+                                "textSize": 14,
+                                "maxLine": 1
+                            }
+                        ]
+                    }
+                ]
+            }
+        },
+        "md_template.com.tencent.public.marketing.list;message": {
+            "version": 1,
+            "templateId": "com.tencent.public.marketing.list",
+            "isPublicAccountTemplate": true,
+            "layout": {
+                "viewId": "app",
+                "width": -1,
+                "height": -2,
+                "direction": "vertical",
+                "layout": [
+                    {
+                        "viewId": "header",
+                        "height": -2,
+                        "width": -1,
+                        "layout": [
+                            {
+                                "viewId": "image",
+                                "viewType": "image",
+                                "direction": "vertical",
+                                "gravity": "centerHorizontal",
+                                "height": -2,
+                                "width": -1,
+                                "ratio": 1.8
+                            },
+                            {
+                                "viewId": "imageMask",
+                                "viewType": "image",
+                                "gravity": "bottom",
+                                "height": -2,
+                                "width": -1,
+                                "ratio": 7
+                            },
+                            {
+                                "viewId": "imageDes",
+                                "viewType": "text",
+                                "height": -2,
+                                "width": -1,
+                                "marginLeft": 16,
+                                "marginRight": 16,
+                                "marginBottom": 16,
+                                "gravity": "bottom"
+                            }
+                        ]
+                    },
+                    {
+                        "viewId": "operationItem1",
+                        "height": -2,
+                        "width": -1,
+                        "marginRight": 16,
+                        "marginLeft": 16,
+                        "marginBottom": 16,
+                        "marginTop": 16,
+                        "direction": "horizontal",
+                        "layout": [
+                            {
+                                "viewId": "operationTitle1",
+                                "viewType": "text",
+                                "height": -2,
+                                "width": -1,
+                                "gravity": "centerVertical",
+                                "marginRight": 12
+                            },
+                            {
+                                "viewId": "operationImage1",
+                                "viewType": "image",
+                                "gravity": "right",
+                                "height": 48,
+                                "width": 48
+                            }
+                        ]
+                    },
+                    {
+                        "viewId": "operationItemDivider2",
+                        "viewType": "image",
+                        "height": 0.5,
+                        "width": -1,
+                        "marginLeft": 12,
+                        "marginRight": 12
+                    },
+                    {
+                        "viewId": "operationItem2",
+                        "height": -2,
+                        "width": -1,
+                        "marginRight": 16,
+                        "marginLeft": 16,
+                        "marginBottom": 16,
+                        "marginTop": 16,
+                        "direction": "horizontal",
+                        "layout": [
+                            {
+                                "viewId": "operationTitle2",
+                                "viewType": "text",
+                                "height": -2,
+                                "width": -1,
+                                "gravity": "centerVertical",
+                                "marginRight": 12
+                            },
+                            {
+                                "viewId": "operationImage2",
+                                "viewType": "image",
+                                "gravity": "right",
+                                "height": 48,
+                                "width": 48
+                            }
+                        ]
+                    },
+                    {
+                        "viewId": "operationItemDivider3",
+                        "viewType": "image",
+                        "height": 0.5,
+                        "width": -1,
+                        "marginLeft": 12,
+                        "marginRight": 12
+                    },
+                    {
+                        "viewId": "operationItem3",
+                        "height": -2,
+                        "width": -1,
+                        "marginRight": 16,
+                        "marginLeft": 16,
+                        "marginBottom": 16,
+                        "marginTop": 16,
+                        "direction": "horizontal",
+                        "layout": [
+                            {
+                                "viewId": "operationTitle3",
+                                "viewType": "text",
+                                "height": -2,
+                                "width": -1,
+                                "gravity": "centerVertical",
+                                "marginRight": 12
+                            },
+                            {
+                                "viewId": "operationImage3",
+                                "viewType": "image",
+                                "gravity": "right",
+                                "height": 48,
+                                "width": 48
+                            }
+                        ]
+                    },
+                    {
+                        "viewId": "operationItemDivider4",
+                        "viewType": "image",
+                        "height": 0.5,
+                        "width": -1,
+                        "marginLeft": 12,
+                        "marginRight": 12
+                    },
+                    {
+                        "viewId": "operationItem4",
+                        "height": -2,
+                        "width": -1,
+                        "marginRight": 16,
+                        "marginLeft": 16,
+                        "marginBottom": 16,
+                        "marginTop": 16,
+                        "direction": "horizontal",
+                        "layout": [
+                            {
+                                "viewId": "operationTitle4",
+                                "viewType": "text",
+                                "height": -2,
+                                "width": -1,
+                                "gravity": "centerVertical",
+                                "marginRight": 12
+                            },
+                            {
+                                "viewId": "operationImage4",
+                                "viewType": "image",
+                                "height": 48,
+                                "gravity": "right",
+                                "width": 48
+                            }
+                        ]
+                    }
+                ]
+            },
+            "attributes": {
+                "viewId": "app",
+                "radius": 12,
+                "backgroundColor": "fill_light_primary",
+                "clickable": true,
+                "schema": "$$jumpUrl",
+                "attributes": [
+                    {
+                        "viewId": "header",
+                        "event": {
+                            "init": {
+                                "visibleCtr": {
+                                    "visible": "$$imageUrl",
+                                    "visibleBehave": "GONE",
+                                    "src": "$$imageUrl"
+                                }
+                            }
+                        },
+                        "attributes": [
+                            {
+                                "viewId": "image",
+                                "src": "$$imageUrl",
+                                "contentMode": 2,
+                                "standardCSSStyle": {
+                                    "borderRadius": "12px 12px 0 0"
+                                }
+                            },
+                            {
+                                "viewId": "imageMask",
+                                "src": "$$imageMask",
+                                "contentMode": 2
+                            },
+                            {
+                                "viewId": "imageDes",
+                                "text": "$$imageDes",
+                                "textColor": "text_white",
+                                "textSize": 16,
+                                "maxLine": 1,
+                                "fontBold": 500
+                            }
+                        ]
+                    },
+                    {
+                        "viewId": "operationItem1",
+                        "schema": "$$operationJumpUrl1",
+                        "event": {
+                            "init": {
+                                "visibleCtr": {
+                                    "visible": "$$operationTitle1",
+                                    "visibleBehave": "GONE",
+                                    "src": "$$operationTitle1"
+                                }
+                            }
+                        },
+                        "attributes": [
+                            {
+                                "viewId": "operationTitle1",
+                                "text": "$$operationTitle1",
+                                "textColor": "text_primary",
+                                "textSize": 16,
+                                "maxLine": 2,
+                                "fontBold": 500,
+                                "standardCSSStyle": {
+                                    "lineHeight": "24px"
+                                }
+                            },
+                            {
+                                "viewId": "operationImage1",
+                                "src": "$$operationImage1",
+                                "contentMode": 2,
+                                "radius": 4
+                            }
+                        ]
+                    },
+                    {
+                        "viewId": "operationItemDivider2",
+                        "backgroundColor": "border_standard",
+                        "event": {
+                            "init": {
+                                "visibleCtr": {
+                                    "visible": "$$operationJumpUrl2",
+                                    "visibleBehave": "GONE",
+                                    "src": "$$operationJumpUrl2"
+                                }
+                            }
+                        }
+                    },
+                    {
+                        "viewId": "operationItem2",
+                        "schema": "$$operationJumpUrl2",
+                        "event": {
+                            "init": {
+                                "visibleCtr": {
+                                    "visible": "$$operationTitle2",
+                                    "visibleBehave": "GONE",
+                                    "src": "$$operationTitle2"
+                                }
+                            }
+                        },
+                        "attributes": [
+                            {
+                                "viewId": "operationTitle2",
+                                "text": "$$operationTitle2",
+                                "textColor": "text_primary",
+                                "textSize": 16,
+                                "maxLine": 2,
+                                "fontBold": 500,
+                                "standardCSSStyle": {
+                                    "lineHeight": "24px"
+                                }
+                            },
+                            {
+                                "viewId": "operationImage2",
+                                "src": "$$operationImage2",
+                                "contentMode": 2,
+                                "radius": 4
+                            }
+                        ]
+                    },
+                    {
+                        "viewId": "operationItemDivider3",
+                        "backgroundColor": "border_standard",
+                        "event": {
+                            "init": {
+                                "visibleCtr": {
+                                    "visible": "$$operationJumpUrl3",
+                                    "visibleBehave": "GONE",
+                                    "src": "$$operationJumpUrl3"
+                                }
+                            }
+                        }
+                    },
+                    {
+                        "viewId": "operationItem3",
+                        "schema": "$$operationJumpUrl3",
+                        "event": {
+                            "init": {
+                                "visibleCtr": {
+                                    "visible": "$$operationTitle3",
+                                    "visibleBehave": "GONE",
+                                    "src": "$$operationTitle3"
+                                }
+                            }
+                        },
+                        "attributes": [
+                            {
+                                "viewId": "operationTitle3",
+                                "text": "$$operationTitle3",
+                                "textColor": "text_primary",
+                                "textSize": 16,
+                                "maxLine": 2,
+                                "fontBold": 500,
+                                "standardCSSStyle": {
+                                    "lineHeight": "24px"
+                                }
+                            },
+                            {
+                                "viewId": "operationImage3",
+                                "src": "$$operationImage3",
+                                "contentMode": 2,
+                                "radius": 4
+                            }
+                        ]
+                    },
+                    {
+                        "viewId": "operationItemDivider4",
+                        "backgroundColor": "border_standard",
+                        "event": {
+                            "init": {
+                                "visibleCtr": {
+                                    "visible": "$$operationJumpUrl4",
+                                    "visibleBehave": "GONE",
+                                    "src": "$$operationJumpUrl4"
+                                }
+                            }
+                        }
+                    },
+                    {
+                        "viewId": "operationItem4",
+                        "schema": "$$operationJumpUrl4",
+                        "event": {
+                            "init": {
+                                "visibleCtr": {
+                                    "visible": "$$operationTitle4",
+                                    "visibleBehave": "GONE",
+                                    "src": "$$operationTitle4"
+                                }
+                            }
+                        },
+                        "attributes": [
+                            {
+                                "viewId": "operationTitle4",
+                                "text": "$$operationTitle4",
+                                "textColor": "text_primary",
+                                "textSize": 16,
+                                "maxLine": 2,
+                                "fontBold": 500,
+                                "standardCSSStyle": {
+                                    "lineHeight": "24px"
+                                }
+                            },
+                            {
+                                "viewId": "operationImage4",
+                                "src": "$$operationImage4",
+                                "contentMode": 2,
+                                "radius": 4
+                            }
+                        ]
+                    }
+                ]
+            }
+        },
+        "md_template.com.tencent.public.marketing.tubutton;message": {
+            "version": 1,
+            "templateId": "com.tencent.public.marketing.tubutton",
+            "isPublicAccountTemplate": true,
+            "layout": {
+                "viewId": "app",
+                "width": -1,
+                "height": -2,
+                "direction": "vertical",
+                "layout": [
+                    {
+                        "viewId": "header",
+                        "height": -2,
+                        "width": -1,
+                        "layout": [
+                            {
+                                "viewId": "image",
+                                "viewType": "image",
+                                "direction": "vertical",
+                                "gravity": "centerHorizontal",
+                                "height": -2,
+                                "width": -1,
+                                "ratio": 1.8
+                            },
+                            {
+                                "viewId": "imageMask",
+                                "viewType": "image",
+                                "gravity": "bottom",
+                                "height": -2,
+                                "width": -1,
+                                "ratio": 7
+                            },
+                            {
+                                "viewId": "imageDes",
+                                "viewType": "text",
+                                "height": -2,
+                                "width": -1,
+                                "marginLeft": 16,
+                                "marginRight": 16,
+                                "marginBottom": 16,
+                                "gravity": "bottom"
+                            }
+                        ]
+                    },
+                    {
+                        "viewId": "operationItem1",
+                        "height": -2,
+                        "width": -1,
+                        "marginRight": 16,
+                        "marginLeft": 16,
+                        "marginBottom": 16,
+                        "marginTop": 16,
+                        "direction": "horizontal",
+                        "layout": [
+                            {
+                                "viewId": "operationImage1",
+                                "viewType": "image",
+                                "height": 48,
+                                "width": 48
+                            },
+                            {
+                                "viewId": "operationContent1",
+                                "height": -2,
+                                "width": -1,
+                                "marginLeft": 8,
+                                "marginRight": 8,
+                                "gravity": "centerVertical",
+                                "direction": "vertical",
+                                "layout": [
+                                    {
+                                        "viewId": "operationTitle1",
+                                        "viewType": "text",
+                                        "height": -2,
+                                        "width": -1
+                                    },
+                                    {
+                                        "viewId": "operationDes1",
+                                        "viewType": "text",
+                                        "marginTop": 6,
+                                        "height": -2,
+                                        "width": -1
+                                    }
+                                ]
+                            },
+                            {
+                                "viewId": "operationButton1",
+                                "height": -2,
+                                "width": -2,
+                                "gravity": "centerVertical",
+                                "layout": [
+                                    {
+                                        "viewId": "operationButtonDes1",
+                                        "viewType": "text",
+                                        "direction": "vertical",
+                                        "gravity": "centerHorizontal",
+                                        "marginTop": 6,
+                                        "marginLeft": 16,
+                                        "marginBottom": 6,
+                                        "marginRight": 16,
+                                        "height": -2,
+                                        "width": -2
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            "attributes": {
+                "viewId": "app",
+                "radius": 12,
+                "backgroundColor": "fill_light_primary",
+                "clickable": true,
+                "schema": "$$jumpUrl",
+                "attributes": [
+                    {
+                        "viewId": "header",
+                        "event": {
+                            "init": {
+                                "visibleCtr": {
+                                    "visible": "$$imageUrl",
+                                    "visibleBehave": "GONE",
+                                    "src": "$$imageUrl"
+                                }
+                            }
+                        },
+                        "attributes": [
+                            {
+                                "viewId": "image",
+                                "src": "$$imageUrl",
+                                "contentMode": 2,
+                                "standardCSSStyle": {
+                                    "borderRadius": "12px 12px 0 0"
+                                }
+                            },
+                            {
+                                "viewId": "imageMask",
+                                "src": "$$imageMask",
+                                "contentMode": 2
+                            },
+                            {
+                                "viewId": "imageDes",
+                                "text": "$$imageDes",
+                                "textColor": "text_white",
+                                "textSize": 16,
+                                "maxLine": 1,
+                                "fontBold": 500
+                            }
+                        ]
+                    },
+                    {
+                        "viewId": "operationItem1",
+                        "schema": "$$operationJumpUrl1",
+                        "event": {
+                            "init": {
+                                "visibleCtr": {
+                                    "visible": "$$operationTitle1",
+                                    "visibleBehave": "GONE",
+                                    "src": "$$operationTitle1"
+                                }
+                            }
+                        },
+                        "attributes": [
+                            {
+                                "viewId": "operationImage1",
+                                "src": "$$operationImage1",
+                                "contentMode": 2,
+                                "radius": 6
+                            },
+                            {
+                                "viewId": "operationContent1",
+                                "attributes": [
+                                    {
+                                        "viewId": "operationTitle1",
+                                        "text": "$$operationTitle1",
+                                        "textColor": "text_primary",
+                                        "textSize": 16,
+                                        "maxLine": 1,
+                                        "fontBold": 500,
+                                        "standardCSSStyle": {
+                                            "lineHeight": "24px",
+                                            "maxWidth": "196px"
+                                        }
+                                    },
+                                    {
+                                        "viewId": "operationDes1",
+                                        "text": "$$operationDes1",
+                                        "textColor": "text_secondary",
+                                        "textSize": 14,
+                                        "maxLine": 1,
+                                        "standardCSSStyle": {
+                                            "maxWidth": "196px"
+                                        }
+                                    }
+                                ]
+                            },
+                            {
+                                "viewId": "operationButton1",
+                                "schema": "$$operationButton1JumpUrl",
+                                "radius": 16,
+                                "event": {
+                                    "init": {
+                                        "visibleCtr": {
+                                            "visible": "$$operationButton1",
+                                            "visibleBehave": "GONE",
+                                            "src": "$$operationButton1"
+                                        }
+                                    }
+                                },
+                                "backgroundColor": "brand_standard",
+                                "attributes": [
+                                    {
+                                        "viewId": "operationButtonDes1",
+                                        "text": "$$operationButton1",
+                                        "textSize": 12,
+                                        "textColor": "text_white",
+                                        "maxLine": 1
+                                    }
+                                ],
+                                "standardCSSStyle": {
+                                    "maxWidth": "80px"
+                                }
+                            }
+                        ]
+                    }
+                ]
+            }
+        },
+        "md_template.com.tencent.public.function.pay;message": {
+            "version": 1,
+            "templateId": "com.tencent.public.function.pay",
+            "isPublicAccountTemplate": true,
+            "layout": {
+                "viewId": "app",
+                "width": -1,
+                "height": -2,
+                "direction": "vertical",
+                "layout": [
+                    {
+                        "viewId": "header",
+                        "direction": "horizontal",
+                        "marginLeft": 16,
+                        "marginRight": 16,
+                        "height": -2,
+                        "width": -1,
+                        "layout": [
+                            {
+                                "viewId": "appIcon",
+                                "viewType": "image",
+                                "marginTop": 12,
+                                "marginBottom": 12,
+                                "height": 20,
+                                "width": 20,
+                                "gravity": "centerVertical"
+                            },
+                            {
+                                "viewId": "appName",
+                                "viewType": "text",
+                                "height": -2,
+                                "width": -1,
+                                "marginLeft": 8,
+                                "marginTop": 12,
+                                "marginBottom": 12,
+                                "marginRight": 16,
+                                "gravity": "centerVertical"
+                            }
+                        ]
+                    },
+                    {
+                        "viewId": "divider1",
+                        "viewType": "image",
+                        "height": 0.5,
+                        "width": -1
+                    },
+                    {
+                        "viewId": "titleArea",
+                        "direction": "horizontal",
+                        "marginLeft": 16,
+                        "marginTop": 24,
+                        "marginRight": 16,
+                        "marginBottom": 0,
+                        "height": -2,
+                        "width": -2,
+                        "layout": [
+                            {
+                                "viewId": "title",
+                                "viewType": "text",
+                                "height": -2,
+                                "width": -1,
+                                "gravity": "centerVertical"
+                            }
+                        ]
+                    },
+                    {
+                        "viewId": "contentArea",
+                        "direction": "vertical",
+                        "marginLeft": 16,
+                        "marginTop": 20,
+                        "marginRight": 16,
+                        "height": -2,
+                        "width": -1,
+                        "layout": [
+                            {
+                                "viewId": "contentText",
+                                "viewType": "text",
+                                "height": -2,
+                                "width": -1,
+                                "gravity": "centerHorizontal"
+                            },
+                            {
+                                "viewId": "money",
+                                "viewType": "text",
+                                "marginTop": 12,
+                                "height": -2,
+                                "width": -1,
+                                "gravity": "centerHorizontal"
+                            }
+                        ]
+                    },
+                    {
+                        "viewId": "infoItems",
+                        "direction": "horizontal",
+                        "marginLeft": 16,
+                        "marginRight": 16,
+                        "marginTop": 24,
+                        "height": -2,
+                        "width": -1,
+                        "layout": [
+                            {
+                                "viewId": "infoItemTitles",
+                                "direction": "vertical",
+                                "height": -2,
+                                "width": -2,
+                                "marginRight": 12,
+                                "layout": [
+                                    {
+                                        "viewId": "infoItemTitle1",
+                                        "viewType": "text",
+                                        "height": -2,
+                                        "width": -1
+                                    },
+                                    {
+                                        "viewId": "infoItemTitle2",
+                                        "viewType": "text",
+                                        "height": -2,
+                                        "width": -1,
+                                        "marginTop": 12
+                                    },
+                                    {
+                                        "viewId": "infoItemTitle3",
+                                        "viewType": "text",
+                                        "height": -2,
+                                        "width": -1,
+                                        "marginTop": 12
+                                    },
+                                    {
+                                        "viewId": "infoItemTitle4",
+                                        "viewType": "text",
+                                        "height": -2,
+                                        "width": -1,
+                                        "marginTop": 12
+                                    }
+                                ]
+                            },
+                            {
+                                "viewId": "infoItemDeses",
+                                "direction": "vertical",
+                                "height": -2,
+                                "width": -1,
+                                "layout": [
+                                    {
+                                        "viewId": "infoItemDes1",
+                                        "viewType": "text",
+                                        "height": -2,
+                                        "width": -1
+                                    },
+                                    {
+                                        "viewId": "infoItemDes2",
+                                        "viewType": "text",
+                                        "height": -2,
+                                        "width": -1,
+                                        "marginTop": 12
+                                    },
+                                    {
+                                        "viewId": "infoItemDes3",
+                                        "viewType": "text",
+                                        "height": -2,
+                                        "width": -1,
+                                        "marginTop": 12
+                                    },
+                                    {
+                                        "viewId": "infoItemDes4",
+                                        "viewType": "text",
+                                        "height": -2,
+                                        "width": -1,
+                                        "marginTop": 12
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "viewId": "operationItemDivider1",
+                        "viewType": "image",
+                        "height": 0.5,
+                        "width": -1,
+                        "marginLeft": 12,
+                        "marginRight": 12,
+                        "marginTop": 24
+                    },
+                    {
+                        "viewId": "operationItem1",
+                        "direction": "horizontal",
+                        "height": -2,
+                        "width": -1,
+                        "layout": [
+                            {
+                                "viewId": "operationText1",
+                                "viewType": "text",
+                                "height": -2,
+                                "width": -1,
+                                "marginLeft": 16,
+                                "marginTop": 12,
+                                "marginBottom": 12,
+                                "gravity": "centerVertical"
+                            },
+                            {
+                                "viewId": "arrowIcon1",
+                                "viewType": "image",
+                                "height": 16,
+                                "width": 16,
+                                "marginTop": 12,
+                                "marginBottom": 12,
+                                "marginRight": 16,
+                                "marginLeft": 16,
+                                "gravity": "centerVertical|right"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "attributes": {
+                "viewId": "app",
+                "radius": 12,
+                "backgroundColor": "fill_light_primary",
+                "clickable": true,
+                "schema": "$$jumpUrl",
+                "attributes": [
+                    {
+                        "viewId": "header",
+                        "event": {
+                            "init": {
+                                "visibleCtr": {
+                                    "visible": "$$appIcon",
+                                    "visibleBehave": "GONE",
+                                    "src": "$$appIcon"
+                                }
+                            }
+                        },
+                        "schema": "$$appJumpUrl",
+                        "attributes": [
+                            {
+                                "viewId": "appIcon",
+                                "src": "$$appIcon",
+                                "radius": 12
+                            },
+                            {
+                                "viewId": "appName",
+                                "text": "$$appName",
+                                "textSize": 14,
+                                "textColor": "text_primary",
+                                "maxLine": 1,
+                                "fontBold": 500
+                            }
+                        ]
+                    },
+                    {
+                        "viewId": "divider1",
+                        "event": {
+                            "init": {
+                                "visibleCtr": {
+                                    "visible": "$$appIcon",
+                                    "visibleBehave": "GONE",
+                                    "src": "$$appIcon"
+                                }
+                            }
+                        },
+                        "backgroundColor": "border_standard"
+                    },
+                    {
+                        "viewId": "titleArea",
+                        "attributes": [
+                            {
+                                "viewId": "title",
+                                "text": "$$title",
+                                "textSize": 16,
+                                "textColor": "text_primary",
+                                "fontBold": 500,
+                                "maxLine": 1,
+                                "standardCSSStyle": {
+                                    "lineHeight": "24px"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "viewId": "contentArea",
+                        "attributes": [
+                            {
+                                "viewId": "contentText",
+                                "text": "$$contentText",
+                                "textSize": 14,
+                                "textColor": "text_secondary",
+                                "maxLine": 1,
+                                "standardCSSStyle": {
+                                    "textAlign": "center"
+                                }
+                            },
+                            {
+                                "viewId": "money",
+                                "text": "$$money",
+                                "textSize": 46,
+                                "textColor": "text_primary",
+                                "fontBold": 500,
+                                "maxLine": 1,
+                                "standardCSSStyle": {
+                                    "lineHeight": "42px",
+                                    "textAlign": "center"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "viewId": "infoItems",
+                        "attributes": [
+                            {
+                                "viewId": "infoItemTitles",
+                                "attributes": [
+                                    {
+                                        "viewId": "infoItemTitle1",
+                                        "text": "$$infoItemTitle1",
+                                        "textSize": 14,
+                                        "textColor": "text_secondary",
+                                        "maxLine": 1,
+                                        "event": {
+                                            "init": {
+                                                "visibleCtr": {
+                                                    "visible": "$$infoItemTitle1",
+                                                    "visibleBehave": "GONE",
+                                                    "src": "$$infoItemTitle1"
+                                                }
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "viewId": "infoItemTitle2",
+                                        "text": "$$infoItemTitle2",
+                                        "textSize": 14,
+                                        "textColor": "text_secondary",
+                                        "maxLine": 1,
+                                        "event": {
+                                            "init": {
+                                                "visibleCtr": {
+                                                    "visible": "$$infoItemTitle2",
+                                                    "visibleBehave": "GONE",
+                                                    "src": "$$infoItemTitle2"
+                                                }
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "viewId": "infoItemTitle3",
+                                        "text": "$$infoItemTitle3",
+                                        "textSize": 14,
+                                        "textColor": "text_secondary",
+                                        "maxLine": 1,
+                                        "event": {
+                                            "init": {
+                                                "visibleCtr": {
+                                                    "visible": "$$infoItemTitle3",
+                                                    "visibleBehave": "GONE",
+                                                    "src": "$$infoItemTitle3"
+                                                }
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "viewId": "infoItemTitle4",
+                                        "text": "$$infoItemTitle4",
+                                        "textSize": 14,
+                                        "textColor": "text_secondary",
+                                        "maxLine": 1,
+                                        "event": {
+                                            "init": {
+                                                "visibleCtr": {
+                                                    "visible": "$$infoItemTitle4",
+                                                    "visibleBehave": "GONE",
+                                                    "src": "$$infoItemTitle4"
+                                                }
+                                            }
+                                        }
+                                    }
+                                ],
+                                "standardCSSStyle": {
+                                    "maxWidth": "163px"
+                                }
+                            },
+                            {
+                                "viewId": "infoItemDeses",
+                                "attributes": [
+                                    {
+                                        "viewId": "infoItemDes1",
+                                        "text": "$$infoItemDes1",
+                                        "textSize": 14,
+                                        "textColor": "text_primary",
+                                        "maxLine": 1,
+                                        "event": {
+                                            "init": {
+                                                "visibleCtr": {
+                                                    "visible": "$$infoItemDes1",
+                                                    "visibleBehave": "GONE",
+                                                    "src": "$$infoItemDes1"
+                                                }
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "viewId": "infoItemDes2",
+                                        "text": "$$infoItemDes2",
+                                        "textSize": 14,
+                                        "textColor": "text_primary",
+                                        "maxLine": 1,
+                                        "event": {
+                                            "init": {
+                                                "visibleCtr": {
+                                                    "visible": "$$infoItemDes2",
+                                                    "visibleBehave": "GONE",
+                                                    "src": "$$infoItemDes2"
+                                                }
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "viewId": "infoItemDes3",
+                                        "text": "$$infoItemDes3",
+                                        "textSize": 14,
+                                        "textColor": "text_primary",
+                                        "maxLine": 1,
+                                        "event": {
+                                            "init": {
+                                                "visibleCtr": {
+                                                    "visible": "$$infoItemDes3",
+                                                    "visibleBehave": "GONE",
+                                                    "src": "$$infoItemDes3"
+                                                }
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "viewId": "infoItemDes4",
+                                        "text": "$$infoItemDes4",
+                                        "textSize": 14,
+                                        "textColor": "text_primary",
+                                        "maxLine": 1,
+                                        "event": {
+                                            "init": {
+                                                "visibleCtr": {
+                                                    "visible": "$$infoItemDes4",
+                                                    "visibleBehave": "GONE",
+                                                    "src": "$$infoItemDes4"
+                                                }
+                                            }
+                                        }
+                                    }
+                                ],
+                                "standardCSSStyle": {
+                                    "overflow": "hidden"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "viewId": "operationItemDivider1",
+                        "backgroundColor": "border_standard",
+                        "event": {
+                            "init": {
+                                "visibleCtr": {
+                                    "visible": "$$operationJump1",
+                                    "visibleBehave": "GONE",
+                                    "src": "$$operationJump1"
+                                }
+                            }
+                        }
+                    },
+                    {
+                        "viewId": "operationItem1",
+                        "event": {
+                            "init": {
+                                "visibleCtr": {
+                                    "visible": "$$operationJump1",
+                                    "visibleBehave": "GONE",
+                                    "src": "$$operationJump1"
+                                }
+                            }
+                        },
+                        "clickable": true,
+                        "schema": "$$operationJump1",
+                        "attributes": [
+                            {
+                                "viewId": "operationText1",
+                                "text": "$$operationText1",
+                                "maxLine": 1,
+                                "textSize": 12,
+                                "textColor": "text_primary",
+                                "standardCSSStyle": {
+                                    "lineHeight": "20px"
+                                }
+                            },
+                            {
+                                "viewId": "arrowIcon1",
+                                "src": "$$operationIcon1"
+                            }
+                        ]
+                    }
+                ]
+            }
+        },
+        "md_template.com.tencent.public.function.warn;message": {
+            "version": 1,
+            "templateId": "com.tencent.public.function.warn",
+            "isPublicAccountTemplate": true,
+            "layout": {
+                "viewId": "app",
+                "width": -1,
+                "height": -2,
+                "direction": "vertical",
+                "layout": [
+                    {
+                        "viewId": "header",
+                        "direction": "horizontal",
+                        "marginLeft": 16,
+                        "marginRight": 16,
+                        "height": -2,
+                        "width": -1,
+                        "layout": [
+                            {
+                                "viewId": "appIcon",
+                                "viewType": "image",
+                                "marginTop": 12,
+                                "marginBottom": 12,
+                                "height": 20,
+                                "width": 20,
+                                "gravity": "centerVertical"
+                            },
+                            {
+                                "viewId": "appName",
+                                "viewType": "text",
+                                "height": -2,
+                                "width": -1,
+                                "marginLeft": 8,
+                                "marginTop": 12,
+                                "marginBottom": 12,
+                                "marginRight": 56,
+                                "gravity": "centerVertical"
+                            }
+                        ]
+                    },
+                    {
+                        "viewId": "divider1",
+                        "viewType": "image",
+                        "height": 0.5,
+                        "width": -1
+                    },
+                    {
+                        "viewId": "titleArea",
+                        "direction": "horizontal",
+                        "marginLeft": 16,
+                        "marginTop": 24,
+                        "marginRight": 16,
+                        "height": -2,
+                        "width": -1,
+                        "layout": [
+                            {
+                                "viewId": "title",
+                                "viewType": "text",
+                                "height": -2,
+                                "width": -1,
+                                "gravity": "centerVertical"
+                            }
+                        ]
+                    },
+                    {
+                        "viewId": "contentArea",
+                        "direction": "vertical",
+                        "marginLeft": 16,
+                        "marginTop": 20,
+                        "marginRight": 16,
+                        "height": -2,
+                        "width": -1,
+                        "layout": [
+                            {
+                                "viewId": "contentText",
+                                "viewType": "text",
+                                "height": -2,
+                                "width": -1,
+                                "maxLine": 3
+                            }
+                        ]
+                    },
+                    {
+                        "viewId": "operationItemDivider1",
+                        "viewType": "image",
+                        "height": 0.5,
+                        "width": -1,
+                        "marginTop": 24,
+                        "marginLeft": 12,
+                        "marginRight": 12
+                    },
+                    {
+                        "viewId": "operationItem1",
+                        "direction": "horizontal",
+                        "height": -2,
+                        "width": -1,
+                        "layout": [
+                            {
+                                "viewId": "operationText1",
+                                "viewType": "text",
+                                "height": -2,
+                                "width": -1,
+                                "marginLeft": 16,
+                                "marginTop": 12,
+                                "marginBottom": 12,
+                                "gravity": "centerVertical"
+                            },
+                            {
+                                "viewId": "arrowIcon1",
+                                "viewType": "image",
+                                "height": 16,
+                                "width": 16,
+                                "marginTop": 12,
+                                "marginBottom": 12,
+                                "marginRight": 16,
+                                "marginLeft": 16,
+                                "gravity": "centerVertical|right"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "attributes": {
+                "viewId": "app",
+                "radius": 12,
+                "backgroundColor": "fill_light_primary",
+                "clickable": true,
+                "schema": "$$jumpUrl",
+                "attributes": [
+                    {
+                        "viewId": "header",
+                        "event": {
+                            "init": {
+                                "visibleCtr": {
+                                    "visible": "$$appIcon",
+                                    "visibleBehave": "GONE",
+                                    "src": "$$appIcon"
+                                }
+                            }
+                        },
+                        "schema": "$$appJumpUrl",
+                        "attributes": [
+                            {
+                                "viewId": "appIcon",
+                                "src": "$$appIcon",
+                                "radius": 12
+                            },
+                            {
+                                "viewId": "appName",
+                                "text": "$$appName",
+                                "textSize": 14,
+                                "textColor": "text_primary",
+                                "maxLine": 1,
+                                "fontBold": 500
+                            }
+                        ]
+                    },
+                    {
+                        "viewId": "divider1",
+                        "event": {
+                            "init": {
+                                "visibleCtr": {
+                                    "visible": "$$appIcon",
+                                    "visibleBehave": "GONE",
+                                    "src": "$$appIcon"
+                                }
+                            }
+                        },
+                        "backgroundColor": "border_standard"
+                    },
+                    {
+                        "viewId": "titleArea",
+                        "attributes": [
+                            {
+                                "viewId": "title",
+                                "text": "$$title",
+                                "textSize": 16,
+                                "textColor": "text_primary",
+                                "fontBold": 500,
+                                "maxLine": 1,
+                                "standardCSSStyle": {
+                                    "lineHeight": "24px"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "viewId": "contentArea",
+                        "attributes": [
+                            {
+                                "viewId": "contentText",
+                                "text": "$$contentText",
+                                "textSize": 14,
+                                "textColor": "text_secondary",
+                                "maxLine": 4,
+                                "standardCSSStyle": {
+                                    "lineHeight": "22px"
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "viewId": "operationItemDivider1",
+                        "backgroundColor": "border_standard",
+                        "event": {
+                            "init": {
+                                "visibleCtr": {
+                                    "visible": "$$operationJump1",
+                                    "visibleBehave": "GONE",
+                                    "src": "$$operationJump1"
+                                }
+                            }
+                        }
+                    },
+                    {
+                        "viewId": "operationItem1",
+                        "event": {
+                            "init": {
+                                "visibleCtr": {
+                                    "visible": "$$operationJump1",
+                                    "visibleBehave": "GONE",
+                                    "src": "$$operationJump1"
+                                }
+                            }
+                        },
+                        "clickable": true,
+                        "schema": "$$operationJump1",
+                        "attributes": [
+                            {
+                                "viewId": "operationText1",
+                                "text": "$$operationText1",
+                                "maxLine": 1,
+                                "textSize": 12,
+                                "textColor": "text_primary",
+                                "standardCSSStyle": {
+                                    "lineHeight": "20px"
+                                }
+                            },
+                            {
+                                "viewId": "arrowIcon1",
+                                "src": "$$operationIcon1"
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
+    }
+}
