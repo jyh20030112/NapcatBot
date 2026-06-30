@@ -1,4 +1,5 @@
 import asyncio
+from collections import defaultdict, deque
 import json
 import os
 import random
@@ -40,10 +41,20 @@ WS_PORT = int(os.getenv("NAPCAT_WS_PORT", "8082"))
 # name       = 只有喊名字才回复
 # at_or_name = @机器人 或 喊名字 才回复，推荐
 GROUP_REPLY_MODE = os.getenv("GROUP_REPLY_MODE", "at_or_name").lower()
+BLOCK_REPLY_GROUP_IDS = {
+    group_id.strip()
+    for group_id in os.getenv("BLOCK_REPLY_GROUP_IDS", "").split(",")
+    if group_id.strip()
+}
 ALWAYS_REPLY_GROUP_IDS = {
     group_id.strip()
     for group_id in os.getenv("ALWAYS_REPLY_GROUP_IDS", "").split(",")
     if group_id.strip()
+}
+ALWAYS_REPLY_USER_IDS = {
+    user_id.strip()
+    for user_id in os.getenv("ALWAYS_REPLY_USER_IDS", "").split(",")
+    if user_id.strip()
 }
 
 BOT_NAMES = [
@@ -52,13 +63,64 @@ BOT_NAMES = [
     if name.strip()
 ]
 
+QQ_FACE_LABELS = {
+    "1": "撇嘴",
+    "2": "色",
+    "3": "发呆",
+    "4": "得意",
+    "5": "流泪",
+    "6": "害羞",
+    "9": "大哭",
+    "11": "发怒",
+    "12": "调皮",
+    "13": "呲牙",
+    "14": "微笑",
+    "16": "酷",
+    "20": "偷笑",
+    "21": "可爱",
+    "32": "疑问",
+    "39": "再见",
+    "66": "爱心",
+    "76": "赞",
+    "77": "踩",
+    "78": "握手",
+    "85": "飞吻",
+    "99": "鼓掌",
+    "101": "坏笑",
+    "105": "鄙视",
+    "106": "委屈",
+    "109": "亲亲",
+    "111": "可怜",
+    "123": "NO",
+    "124": "OK",
+    "144": "喝彩",
+    "168": "药",
+    "169": "手枪",
+    "171": "茶",
+    "172": "眨眼",
+    "173": "泪奔",
+    "174": "无奈",
+    "175": "卖萌",
+    "176": "小纠结",
+    "177": "喷血",
+    "178": "doge",
+    "179": "惊喜",
+    "180": "骚扰",
+    "181": "笑哭",
+    "187": "脸红",
+}
+
 # 私聊：private:{user_id}
 # 群聊：group:{group_id}
 agents: dict[str, BaseAgent] = {}
 RELOAD_POLL_SECONDS = 1.0
 LOG_INDENT = 2
+INTENT_HISTORY_SIZE = 5
 type MessageSegment = dict[str, Any]
 type MessageContent = str | list[MessageSegment]
+group_recent_messages: dict[str, deque[str]] = defaultdict(
+    lambda: deque(maxlen=INTENT_HISTORY_SIZE)
+)
 
 
 def normalize_log_value(value: object) -> Any:
@@ -106,7 +168,7 @@ SYSTEM_PROMPT = """你叫姜亦衡，正在用 QQ 和别人聊天。
 1. 刚加上好友时，你并不知道对方是谁；要是对方没自报家门，你一般会直接问，不会装作认识。
 2. 别人没明确说过的信息，你不会自己脑补，尤其不会编出“之前认识”“以前聊过”这种关系。
 3. 如果对方问你是谁，你更像是在随口对话，可能先反问一句；对方连续追问，再正常说自己叫姜亦衡。
-4. 别人发图片或表情时，看不到就别乱猜内容。
+4. 别人发图片时，看不到就别乱猜内容；别人发 QQ 表情时，可以按表情本身的语气去理解。
 5. 你回消息先接对方上一句，不会突然岔开话题，也不会没来由地长篇解释自己。
 6. 你的回复大多很短，像 QQ 里随手回的消息，通常就是几到十来个字。
 7. 你说话不用 Markdown，不写括号动作，不像写文，也不会故意端着。
@@ -124,6 +186,8 @@ SYSTEM_PROMPT = """你叫姜亦衡，正在用 QQ 和别人聊天。
 6. 用户随意，你也随意；对方要是开玩笑，你可以顺手怼回去一点。
 7. 没把握的内容就直接说不知道，别顺着编。
 8. 别主动问“有什么事”“我能帮你什么”这种客服味很重的话。
+9. 如果你想发 QQ 自带表情，可以在回复最后加一个标签，格式是 [QQ表情:14] 这种数字 ID；这个标签不会直接发给用户，只是让程序转成 QQ 表情。
+10. 不要每次回复都带表情。
 """
 
 
@@ -135,6 +199,27 @@ CHARACTER_DESCRIPTION = """
 别人问到不熟的事，他第一反应通常是没印象、不确定、直接问回去，不会硬编。
 整体感觉应该像一个活人朋友在回 QQ，不像客服，也不像设定感很重的角色扮演账号。
 """
+
+
+GROUP_INTENT_PROMPT = """你在判断一个QQ群消息，机器人要不要接话。
+
+目标：
+- 偏活跃，但不要抢话。
+- 只输出 reply 或 ignore。
+
+reply 适合：
+- 明显在抛给全群的话题
+- 明显有梗可接、可吐槽、可调侃
+- 虽然没@机器人，但很像在等人接话
+- 语气上机器人插一句会自然
+
+ignore 适合：
+- 明显两三个人在对线，和机器人无关
+- 纯通知、纯表情、纯图片、没内容
+- 机器人插话会显得突兀或刷屏
+
+拿不准时，偏活跃一点，但别硬插。
+只输出一个小写单词：reply 或 ignore。"""
 
 
 def get_scenario() -> str:
@@ -157,6 +242,7 @@ def build_system_prompt() -> str:
             SYSTEM_PROMPT.strip(),
             "【角色设定】\n" + CHARACTER_DESCRIPTION.strip(),
             "【当前场景】\n" + get_scenario(),
+            "【QQ表情设定】\n" + QQ_FACE_LABELS.__str__().strip(),
         ]
     )
 
@@ -164,12 +250,56 @@ def build_system_prompt() -> str:
 # ═══════════════════════════════════════════════════
 # 输入消息处理
 # ═══════════════════════════════════════════════════
+def normalize_bracket_label(text: str) -> str:
+    text = str(text).strip()
+    if not text:
+        return ""
+    if text.startswith("[") and text.endswith("]"):
+        return text
+    return f"[{text}]"
+
+
+def parse_cq_params(raw: str) -> dict[str, str]:
+    params: dict[str, str] = {}
+    for part in raw.split(","):
+        if "=" not in part:
+            continue
+        key, value = part.split("=", 1)
+        params[key] = value
+    return params
+
+
+def extract_face_label(seg_type: str, seg_data: dict[str, Any]) -> str:
+    for key in ("summary", "text", "description", "desc", "name"):
+        value = seg_data.get(key)
+        if value:
+            return normalize_bracket_label(value)
+
+    if seg_type == "face":
+        face_id = str(seg_data.get("id", "")).strip()
+        if face_id in QQ_FACE_LABELS:
+            return normalize_bracket_label(QQ_FACE_LABELS[face_id])
+        return "[QQ表情]"
+
+    return "[商城表情]"
+
+
 def strip_cq_codes(raw: str) -> str:
     if not raw:
         return ""
 
     text = raw
     text = re.sub(r"\[CQ:at,qq=[^\]]+\]", "", text)
+    text = re.sub(
+        r"\[CQ:face,([^\]]*)\]",
+        lambda m: extract_face_label("face", parse_cq_params(m.group(1))),
+        text,
+    )
+    text = re.sub(
+        r"\[CQ:mface,([^\]]*)\]",
+        lambda m: extract_face_label("mface", parse_cq_params(m.group(1))),
+        text,
+    )
     text = re.sub(r"\[CQ:[^\]]+\]", "", text)
 
     return text.strip()
@@ -190,6 +320,8 @@ def extract_plain_text_from_event(data: dict[str, Any]) -> str:
 
             if seg_type == "text":
                 parts.append(str(seg_data.get("text", "")))
+            elif seg_type in ("face", "mface"):
+                parts.append(extract_face_label(seg_type, seg_data))
             elif seg_type == "at":
                 continue
 
@@ -245,31 +377,84 @@ def has_bot_name(text: str) -> bool:
     return any(name and name in text for name in BOT_NAMES)
 
 
-def should_reply(data: dict[str, Any], text: str) -> bool:
+def get_direct_reply_reason(data: dict[str, Any], text: str) -> str | None:
     message_type = data.get("message_type", "private")
 
     if message_type == "private":
-        return True
+        return "private"
 
     if message_type != "group":
-        return False
+        return None
+
+    if str(data.get("group_id", "")) in BLOCK_REPLY_GROUP_IDS:
+        return "group_blacklist"
 
     if str(data.get("group_id", "")) in ALWAYS_REPLY_GROUP_IDS:
-        return True
+        return "group_whitelist"
+
+    if str(data.get("user_id", "")) in ALWAYS_REPLY_USER_IDS:
+        return "user_whitelist"
 
     if GROUP_REPLY_MODE == "all":
-        return True
+        return "group_mode_all"
 
     at_me = is_at_me(data)
     name_called = has_bot_name(text)
 
     if GROUP_REPLY_MODE == "at":
-        return at_me
+        return "at" if at_me else None
 
     if GROUP_REPLY_MODE == "name":
-        return name_called
+        return "name" if name_called else None
 
-    return at_me or name_called
+    if at_me:
+        return "at"
+    if name_called:
+        return "name"
+    return None
+
+
+def remember_group_message(session_id: str, sender_name: str, text: str) -> None:
+    if not session_id.startswith("group:"):
+        return
+    snippet = text.strip() or "[空消息]"
+    group_recent_messages[session_id].append(f"{sender_name}：{snippet}")
+
+
+async def should_reply_by_intent(
+    data: dict[str, Any],
+    text: str,
+    session_id: str,
+) -> tuple[bool, str]:
+    sender_name = get_sender_name(data)
+    history = "\n".join(group_recent_messages.get(session_id, ())) or "（暂无上下文）"
+    task = (
+        f"最近群聊：\n{history}\n\n"
+        f"当前发言者：{sender_name}\n"
+        f"当前消息：{text or '[空消息]'}\n\n"
+        "只输出 reply 或 ignore。"
+    )
+
+    agent = BaseAgent(
+        config=ModelConfig.from_env(),
+        agent_id=f"YH-intent-{datetime.now().timestamp()}",
+        system_prompt=GROUP_INTENT_PROMPT,
+        enable_tools=False,
+    )
+
+    try:
+        result = (await agent.runtime(task=task) or "").strip().lower()
+        if result.startswith("reply"):
+            return True, "intent_model"
+        return False, "intent_ignore"
+    except Exception as e:
+        log_event("意图识别失败", session_id=session_id, error=repr(e))
+        return False, "intent_error"
+    finally:
+        try:
+            await agent.shutdown()
+        except Exception:
+            pass
 
 
 def clean_user_text_for_agent(data: dict[str, Any], text: str) -> str:
@@ -360,8 +545,36 @@ def clean_reply_text(text: str) -> str:
     return text or "嗯"
 
 
+def extract_qq_face_tag(text: str) -> tuple[str, str | None]:
+    if not isinstance(text, str):
+        text = str(text)
+
+    match = re.search(r"\[QQ表情:(\d+)\]", text)
+    face_id = match.group(1) if match else None
+    clean_text = re.sub(r"\[QQ表情:\d+\]", "", text).strip()
+    return clean_text, face_id
+
+
+def build_text_segment(text: str) -> MessageSegment:
+    return {"type": "text", "data": {"text": text}}
+
+
+def build_face_segment(face_id: str) -> MessageSegment:
+    return {"type": "face", "data": {"id": str(face_id)}}
+
+
 def build_message_content(model_output: str) -> MessageContent:
-    return clean_reply_text(model_output)
+    raw_text, face_id = extract_qq_face_tag(model_output)
+    clean_text = clean_reply_text(raw_text)
+
+    if not face_id:
+        return clean_text
+
+    segments: list[MessageSegment] = []
+    if clean_text:
+        segments.append(build_text_segment(clean_text))
+    segments.append(build_face_segment(face_id))
+    return segments
 
 
 # ═══════════════════════════════════════════════════
@@ -482,22 +695,44 @@ async def recv_msg(websocket):
 
             message_type = data.get("message_type", "private")
             plain_text = extract_plain_text_from_event(data)
+            session_id = get_session_id(data)
+            sender_name = get_sender_name(data)
 
-            if not should_reply(data, plain_text):
+            reply_reason = get_direct_reply_reason(data, plain_text)
+
+            if reply_reason is None and message_type == "group":
+                should_reply, reply_reason = await should_reply_by_intent(
+                    data,
+                    plain_text,
+                    session_id,
+                )
+                if not should_reply:
+                    log_event(
+                        "忽略消息",
+                        mode=GROUP_REPLY_MODE,
+                        message_type=message_type,
+                        text=preview_text(plain_text, 100),
+                        reply_reason=reply_reason,
+                    )
+                    remember_group_message(session_id, sender_name, plain_text)
+                    continue
+
+            if reply_reason is None:
                 log_event(
                     "忽略消息",
                     mode=GROUP_REPLY_MODE,
                     message_type=message_type,
                     text=preview_text(plain_text, 100),
+                    reply_reason="direct_ignore",
                 )
                 continue
 
             user_text = clean_user_text_for_agent(data, plain_text)
 
             if not user_text:
+                remember_group_message(session_id, sender_name, plain_text)
                 continue
 
-            session_id = get_session_id(data)
             task = build_agent_task(data, user_text)
 
             log_event(
@@ -506,6 +741,7 @@ async def recv_msg(websocket):
                 message_type=message_type,
                 user_id=user_id,
                 text=preview_text(user_text, 100),
+                reply_reason=reply_reason,
             )
 
             try:
@@ -534,6 +770,7 @@ async def recv_msg(websocket):
                 message_content = "刚才卡了一下"
 
             await send_message(websocket, data, message_content)
+            remember_group_message(session_id, sender_name, plain_text)
 
     except Exception as e:
         log_event("连接异常关闭", remote=remote, error=repr(e))
@@ -555,7 +792,9 @@ async def log_ws_request(connection, request):
 
 async def main():
     log_event("群聊触发模式", mode=GROUP_REPLY_MODE)
+    log_event("群黑名单禁回", group_ids=sorted(BLOCK_REPLY_GROUP_IDS))
     log_event("群白名单直回", group_ids=sorted(ALWAYS_REPLY_GROUP_IDS))
+    log_event("用户白名单直回", user_ids=sorted(ALWAYS_REPLY_USER_IDS))
     log_event("机器人名称触发词", names=BOT_NAMES)
 
     try:

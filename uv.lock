@@ -15,6 +15,15 @@ wheels = [
 ]
 
 [[package]]
+name = "annotated-doc"
+version = "0.0.4"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/57/ba/046ceea27344560984e26a590f90bc7f4a75b06701f653222458922b558c/annotated_doc-0.0.4.tar.gz", hash = "sha256:fbcda96e87e9c92ad167c2e53839e57503ecfda18804ea28102353485033faa4", size = 7288, upload-time = "2025-11-10T22:07:42.062Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1e/d3/26bf1008eb3d2daa8ef4cacc7f3bfdc11818d111f7e2d0201bc6e3b49d45/annotated_doc-0.0.4-py3-none-any.whl", hash = "sha256:571ac1dc6991c450b25a9c2d84a3705e2ae7a53467b5d111c24fa8baabbed320", size = 5303, upload-time = "2025-11-10T22:07:40.673Z" },
+]
+
+[[package]]
 name = "annotated-types"
 version = "0.7.0"
 source = { registry = "https://pypi.org/simple" }
@@ -302,6 +311,22 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/50/79/66800aadf48771f6b62f7eb014e352e5d06856655206165d775e675a02c9/exceptiongroup-1.3.1.tar.gz", hash = "sha256:8b412432c6055b0b7d14c310000ae93352ed6754f70fa8f7c34141f91c4e3219", size = 30371, upload-time = "2025-11-21T23:01:54.787Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/8a/0e/97c33bf5009bdbac74fd2beace167cab3f978feb69cc36f1ef79360d6c4e/exceptiongroup-1.3.1-py3-none-any.whl", hash = "sha256:a7a39a3bd276781e98394987d3a5701d0c4edffb633bb7a5144577f82c773598", size = 16740, upload-time = "2025-11-21T23:01:53.443Z" },
+]
+
+[[package]]
+name = "fastapi"
+version = "0.138.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "annotated-doc" },
+    { name = "pydantic" },
+    { name = "starlette" },
+    { name = "typing-extensions" },
+    { name = "typing-inspection" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/0c/a9/9f8f7e00195c29836e9bf58bbbaf579e29878b8a67851efff93d9b6d4eb7/fastapi-0.138.2.tar.gz", hash = "sha256:6432359d067a432134620e7c5e4c6e5063e7f37815bbbbf20acef14b0d2e3fc8", size = 420423, upload-time = "2026-06-29T12:44:12.556Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f2/b3/38be2c074bdd0c986340db1d72d7b2321b805b1c5a68069aa00b5d31fd02/fastapi-0.138.2-py3-none-any.whl", hash = "sha256:db90c1ffb5517fba5d4a9f80e866daa008747e646310c9ce155c8c535f9d1615", size = 129271, upload-time = "2026-06-29T12:44:13.905Z" },
 ]
 
 [[package]]
@@ -689,7 +714,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "simagentplg", specifier = "==0.2.1" }]
+requires-dist = [{ name = "simagentplg", specifier = "==0.2.3" }]
 
 [[package]]
 name = "openai"
@@ -1193,17 +1218,19 @@ wheels = [
 
 [[package]]
 name = "simagentplg"
-version = "0.2.1"
+version = "0.2.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+    { name = "fastapi" },
     { name = "fastmcp" },
     { name = "openai" },
     { name = "python-dotenv" },
     { name = "pyyaml" },
+    { name = "uvicorn" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/7d/ff/b6956445c696d33fdf93a06fb2b9d3554c2a35d819bc2def3638df6689ea/simagentplg-0.2.1.tar.gz", hash = "sha256:1644e98b99ba123fe29e217091902cf2deaf7e77e2eaf37953fca3fb03190b89", size = 103267, upload-time = "2026-06-15T07:19:10.942Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/91/b1/f3e4fc2af3fada46ac7b83f728f7f3c453870e2bfb801c38b0c2385a43fb/simagentplg-0.2.3.tar.gz", hash = "sha256:2b9c2a6b06d04e551170f94d71959b2813f939e719d09bf2617ec399d07b2065", size = 107253, upload-time = "2026-06-30T08:09:58.045Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/75/8f/b360f39da3310091a97fa08a0dc0d6d031733c266265bdd0ffd9e18d7bf4/simagentplg-0.2.1-py3-none-any.whl", hash = "sha256:684417a03f819d29602ece5957d8a12f0fac95a3e2bd20e1e2be8bc21a1d064e", size = 28467, upload-time = "2026-06-15T07:19:04.731Z" },
+    { url = "https://files.pythonhosted.org/packages/d3/a2/4c45b032f8b863e44a4858811b9e3a3b7b45b875ab04addfd1d8dc08bbc0/simagentplg-0.2.3-py3-none-any.whl", hash = "sha256:d54ab8b40492813ffa8d4d03c7cb5fffc22e372f5ee1dad9f0f4d8fb60764253", size = 30876, upload-time = "2026-06-30T08:09:59.884Z" },
 ]
 
 [[package]]
