@@ -51,11 +51,33 @@ BOT_NAMES = [
 # 群聊：group:{group_id}
 agents: dict[str, BaseAgent] = {}
 RELOAD_POLL_SECONDS = 1.0
+LOG_INDENT = 2
 
 
-def log_event(message: str) -> None:
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    print(f"[{now}] {message}", flush=True)
+def normalize_log_value(value: object) -> Any:
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return value
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, tuple):
+        return [normalize_log_value(item) for item in value]
+    if isinstance(value, list):
+        return [normalize_log_value(item) for item in value]
+    if isinstance(value, dict):
+        return {
+            str(key): normalize_log_value(val)
+            for key, val in value.items()
+        }
+    return repr(value)
+
+def log_event(event: str, **fields: object) -> None:
+    record = {
+        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "event": event,
+    }
+    for key, value in fields.items():
+        record[key] = normalize_log_value(value)
+    print(json.dumps(record, ensure_ascii=False, indent=LOG_INDENT), flush=True)
 
 
 def preview_text(value: object, limit: int = 200) -> str:
@@ -373,7 +395,7 @@ def build_send_msg_action(
 async def send_action(websocket, action: dict[str, Any]) -> None:
     action["echo"] = f"echo-{datetime.now().timestamp()}-{random.randint(1000, 9999)}"
     await websocket.send(json.dumps(action, ensure_ascii=False))
-    log_event(f"已发送 action — {preview_text(action, 400)}")
+    log_event("已发送 action", action=action)
 
 
 async def send_segments(
@@ -399,7 +421,7 @@ async def get_or_create_agent(session_id: str) -> BaseAgent:
             enable_tools=False,
         )
         agents[session_id] = agent
-        log_event(f"创建会话 — session_id={session_id}")
+        log_event("创建会话", session_id=session_id)
 
     return agent
 
@@ -412,14 +434,14 @@ async def recv_msg(websocket):
     request = getattr(websocket, "request", None)
     path = getattr(request, "path", None)
 
-    log_event(f"连接建立 — remote={remote}, path={path}")
+    log_event("连接建立", remote=remote, path=path)
 
     try:
         async for raw in websocket:
             try:
                 data = json.loads(raw)
             except Exception:
-                log_event(f"收到非 JSON 消息 — raw={preview_text(raw, 300)}")
+                log_event("收到非 JSON 消息", raw=preview_text(raw, 300))
                 continue
 
             if isinstance(data, list):
@@ -428,15 +450,15 @@ async def recv_msg(websocket):
                 data = data[0]
 
             if not isinstance(data, dict):
-                log_event(f"收到未知数据 — {preview_text(data, 300)}")
+                log_event("收到未知数据", data=preview_text(data, 300))
                 continue
 
             # 非 message 的事件，很多时候就是 NapCat 对 action 的响应
             if data.get("post_type") != "message":
                 if "status" in data or "retcode" in data or "echo" in data:
-                    log_event(f"NapCat 动作响应 — {preview_text(data, 800)}")
+                    log_event("NapCat 动作响应", data=data)
                 else:
-                    log_event(f"收到非消息事件 — {preview_text(data, 500)}")
+                    log_event("收到非消息事件", data=data)
                 continue
 
             # 避免机器人处理自己发出的消息
@@ -451,8 +473,10 @@ async def recv_msg(websocket):
 
             if not should_reply(data, plain_text):
                 log_event(
-                    f"忽略消息 — mode={GROUP_REPLY_MODE}, "
-                    f"type={message_type}, text={preview_text(plain_text, 100)}"
+                    "忽略消息",
+                    mode=GROUP_REPLY_MODE,
+                    message_type=message_type,
+                    text=preview_text(plain_text, 100),
                 )
                 continue
 
@@ -465,9 +489,11 @@ async def recv_msg(websocket):
             task = build_agent_task(data, user_text)
 
             log_event(
-                f"收到消息 — session_id={session_id}, "
-                f"type={message_type}, user_id={user_id}, "
-                f"text={preview_text(user_text, 100)}"
+                "收到消息",
+                session_id=session_id,
+                message_type=message_type,
+                user_id=user_id,
+                text=preview_text(user_text, 100),
             )
 
             try:
@@ -476,20 +502,21 @@ async def recv_msg(websocket):
                 # 每次更新当前时间
                 agent.system_prompt = build_system_prompt()
 
-                log_event(f"开始处理 — session_id={session_id}, task={preview_text(task, 120)}")
+                log_event("开始处理", session_id=session_id, task=preview_text(task, 120))
                 result = await agent.runtime(task=task)
 
                 model_output = result or "嗯"
                 message_segments = build_message_segments(model_output=model_output)
 
                 log_event(
-                    f"处理完成 — session_id={session_id}, "
-                    f"model={preview_text(model_output, 150)}, "
-                    f"segments={preview_text(message_segments, 300)}"
+                    "处理完成",
+                    session_id=session_id,
+                    model=preview_text(model_output, 150),
+                    segments=message_segments,
                 )
 
             except Exception as e:
-                log_event(f"处理出错 — session_id={session_id}, error={e!r}")
+                log_event("处理出错", session_id=session_id, error=repr(e))
                 traceback.print_exc()
 
                 message_segments = [
@@ -504,26 +531,26 @@ async def recv_msg(websocket):
             await send_segments(websocket, data, message_segments)
 
     except Exception as e:
-        log_event(f"连接异常关闭 — remote={remote}, error={e!r}")
+        log_event("连接异常关闭", remote=remote, error=repr(e))
         traceback.print_exc()
         raise
 
     finally:
-        log_event(f"连接结束 — remote={remote}")
+        log_event("连接结束", remote=remote)
 
 
 async def log_ws_request(connection, request):
     log_event(
-        "收到握手请求 — "
-        f"remote={getattr(connection, 'remote_address', None)}, "
-        f"path={getattr(request, 'path', None)}"
+        "收到握手请求",
+        remote=getattr(connection, "remote_address", None),
+        path=getattr(request, "path", None),
     )
     return None
 
 
 async def main():
-    log_event(f"群聊触发模式：{GROUP_REPLY_MODE}")
-    log_event(f"机器人名称触发词：{BOT_NAMES}")
+    log_event("群聊触发模式", mode=GROUP_REPLY_MODE)
+    log_event("机器人名称触发词", names=BOT_NAMES)
 
     try:
         async with websockets.serve(
@@ -532,16 +559,16 @@ async def main():
             WS_PORT,
             process_request=log_ws_request,
         ):
-            log_event(f"机器人启动：ws://{WS_HOST}:{WS_PORT}")
+            log_event("机器人启动", websocket_url=f"ws://{WS_HOST}:{WS_PORT}")
             await asyncio.Future()
 
     finally:
         for session_id, agent in agents.items():
             try:
                 await agent.shutdown()
-                log_event(f"会话已关闭 — session_id={session_id}")
+                log_event("会话已关闭", session_id=session_id)
             except Exception as e:
-                log_event(f"关闭会话失败 — session_id={session_id}, error={e!r}")
+                log_event("关闭会话失败", session_id=session_id, error=repr(e))
 
 
 def get_reload_targets() -> list[Path]:
@@ -562,7 +589,7 @@ def run_with_reload() -> None:
     watched = get_reload_targets()
     last_mtimes = snapshot_mtimes(watched)
 
-    log_event(f"热重载已开启 — 监听文件：{', '.join(path.name for path in watched)}")
+    log_event("热重载已开启", watched_files=[path.name for path in watched])
 
     while True:
         child = subprocess.Popen(child_args, env=child_env)
