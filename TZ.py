@@ -6,7 +6,7 @@ import re
 import traceback
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional, Tuple
+from typing import Any
 
 import websockets
 from dotenv import load_dotenv
@@ -40,56 +40,13 @@ GROUP_REPLY_MODE = os.getenv("GROUP_REPLY_MODE", "at_or_name").lower()
 
 BOT_NAMES = [
     name.strip()
-    for name in os.getenv("BOT_NAMES", "姜亦衡,小姜,义恒").split(",")
+    for name in os.getenv("BOT_NAMES", "姜亦衡,小姜,亦衡").split(",")
     if name.strip()
 ]
 
 # 私聊：private:{user_id}
 # 群聊：group:{group_id}
 agents: dict[str, BaseAgent] = {}
-
-
-# ═══════════════════════════════════════════════════
-# 表情包配置
-# ═══════════════════════════════════════════════════
-# 宿主机上的表情包目录，Python 选图用这个
-MEME_DIR = Path(
-    os.getenv("MEME_DIR", str(Path(__file__).parent / "memes"))
-).resolve()
-
-# NapCat 容器里看到的表情包目录
-# docker-compose 里要有：./memes:/app/memes:ro
-NAPCAT_MEME_DIR = os.getenv("NAPCAT_MEME_DIR", "/app/memes")
-
-# path     = 发 /app/memes/xxx.png
-# file_uri = 发 file:///app/memes/xxx.png
-MEME_PATH_MODE = os.getenv("MEME_PATH_MODE", "path").lower()
-
-IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"}
-
-# 建议目录：
-# memes/
-# ├── 尴尬/
-# ├── 摸鱼/
-# ├── 无语/
-# ├── 疑惑/
-
-
-MEME_TAGS = {
-    "尴尬": MEME_DIR / "尴尬",
-    "摸鱼": MEME_DIR / "摸鱼",
-    "无语": MEME_DIR / "无语",
-    "疑惑": MEME_DIR / "疑惑",
-
-}
-
-# LLM 没主动要求发图时，程序自动补表情包的概率
-AUTO_MEME_PROBABILITY = float(os.getenv("AUTO_MEME_PROBABILITY", "0.12"))
-
-# 表情包冷却，避免每句话都发
-MEME_COOLDOWN_SECONDS = int(os.getenv("MEME_COOLDOWN_SECONDS", "25"))
-
-last_meme_time: dict[str, datetime] = {}
 
 
 def log_event(message: str) -> None:
@@ -102,13 +59,6 @@ def preview_text(value: object, limit: int = 200) -> str:
     if len(text) > limit:
         return text[:limit] + "..."
     return text
-
-
-def ensure_meme_dirs() -> None:
-    MEME_DIR.mkdir(parents=True, exist_ok=True)
-    for folder in MEME_TAGS.values():
-        folder.mkdir(parents=True, exist_ok=True)
-
 
 # ═══════════════════════════════════════════════════
 # System Prompt
@@ -147,23 +97,6 @@ SYSTEM_PROMPT = """你叫姜亦衡，正在用 QQ 和别人聊天。
 10. 不要假装自己很成熟，也不要中二。
 11. 不要表现的过分热情。
 12. 当用户和你聊天多的时候，可以开点玩笑
-13. 不要随便发表情包
-
-表情包规则：
-你可以在回复最后加一个表情标签。
-格式只能是：
-[表情:尴尬]
-[表情:摸鱼]
-[表情:无语]
-[表情:疑惑]
-
-一条消息最多一个表情标签。
-表情标签只是给程序识别用，不是发给用户看的。
-
-适合发表情的情况：
-- 被吐槽、被调侃：用 [表情:尴尬] 或 [表情:无语]
-- 聊到上课、作业、兼职、熬夜、打游戏：用 [表情:摸鱼]
-- 没听懂、对方突然问奇怪问题：用 [表情:疑惑]
 
 
 示例：
@@ -385,24 +318,8 @@ def build_agent_task(data: dict[str, Any], user_text: str) -> str:
 
 
 # ═══════════════════════════════════════════════════
-# 输出清洗 + 表情包处理
+# 输出清洗
 # ═══════════════════════════════════════════════════
-def extract_meme_tag(text: str) -> Tuple[str, Optional[str]]:
-    if not isinstance(text, str):
-        text = str(text)
-
-    allowed = "|".join(re.escape(tag) for tag in MEME_TAGS.keys())
-    pattern = rf"\[表情:({allowed})\]"
-
-    match = re.search(pattern, text)
-    tag = match.group(1) if match else None
-
-    # 去掉所有 [表情:xxx]，避免标签发给 QQ 用户
-    clean_text = re.sub(r"\[表情:[^\]]+\]", "", text).strip()
-
-    return clean_text, tag
-
-
 def clean_reply_text(text: str) -> str:
     if not isinstance(text, str):
         text = str(text)
@@ -446,149 +363,10 @@ def clean_reply_text(text: str) -> str:
     return text or "嗯"
 
 
-def pick_meme_file(tag: Optional[str]) -> Optional[Path]:
-    if not tag:
-        return None
-
-    folder = MEME_TAGS.get(tag)
-
-    if not folder or not folder.exists():
-        log_event(f"表情包目录不存在 — tag={tag}, folder={folder}")
-        return None
-
-    files = [
-        p
-        for p in folder.rglob("*")
-        if p.is_file() and p.suffix.lower() in IMAGE_SUFFIXES
-    ]
-
-    if not files:
-        log_event(f"表情包目录为空 — tag={tag}, folder={folder}")
-        return None
-
-    return random.choice(files).resolve()
-
-
-def meme_path_for_onebot(path: Path) -> str:
-    """
-    Python 在宿主机选图，NapCat 在 Docker 容器里发图。
-
-    宿主机路径：
-    /home/arch/Desktop/Dev/NapcatBot/memes/摸鱼/image2.png
-
-    容器内路径：
-    /app/memes/摸鱼/image2.png
-    """
-    resolved = path.resolve()
-
-    try:
-        rel_path = resolved.relative_to(MEME_DIR)
-        target_path = Path(NAPCAT_MEME_DIR) / rel_path
-    except ValueError:
-        target_path = resolved
-
-    if MEME_PATH_MODE == "file_uri":
-        return "file://" + str(target_path)
-
-    return str(target_path)
-
-
-def guess_meme_tag_from_context(user_text: str, reply_text: str) -> Optional[str]:
-    combined = f"{user_text} {reply_text}"
-
-    if any(k in combined for k in ["人机", "怪", "尴尬", "错话", "社死"]):
-        return "尴尬"
-
-    if any(k in combined for k in ["摸鱼", "上班", "工作", "加班", "报表", "客户", "下班"]):
-        return "摸鱼"
-
-    if any(k in combined for k in ["无语", "服了", "离谱"]):
-        return "无语"
-
-    if any(k in combined for k in ["不懂", "什么", "为啥", "为什么", "谁啊", "？", "?"]):
-        return "疑惑"
-
-    return None
-
-
-def can_send_meme(session_id: str, explicit: bool) -> bool:
-    now = datetime.now()
-    last = last_meme_time.get(session_id)
-
-    if last is not None:
-        delta = (now - last).total_seconds()
-        if delta < MEME_COOLDOWN_SECONDS:
-            return False
-
-    if explicit:
-        return True
-
-    return random.random() < AUTO_MEME_PROBABILITY
-
-
 def build_message_segments(
     model_output: str,
-    user_text: str,
-    session_id: str,
 ) -> list[dict[str, Any]]:
-    raw_text, explicit_tag = extract_meme_tag(model_output)
-    clean_text = clean_reply_text(raw_text)
-
-    tag = explicit_tag
-    explicit = tag is not None
-
-    if tag is None:
-        tag = guess_meme_tag_from_context(user_text, clean_text)
-
-    meme_file = None
-
-    if tag and can_send_meme(session_id, explicit=explicit):
-        meme_file = pick_meme_file(tag)
-
-    segments: list[dict[str, Any]] = []
-
-    if clean_text:
-        segments.append(
-            {
-                "type": "text",
-                "data": {
-                    "text": clean_text,
-                },
-            }
-        )
-
-    if meme_file:
-        onebot_file = meme_path_for_onebot(meme_file)
-
-        log_event(
-            f"准备发送表情包 — tag={tag}, "
-            f"host_path={meme_file}, napcat_path={onebot_file}"
-        )
-
-        segments.append(
-            {
-                "type": "image",
-                "data": {
-                    "file": onebot_file,
-                    "name": meme_file.name,
-                    "summary": f"[{tag}]",
-                },
-            }
-        )
-
-        last_meme_time[session_id] = datetime.now()
-
-    if not segments:
-        segments.append(
-            {
-                "type": "text",
-                "data": {
-                    "text": "嗯",
-                },
-            }
-        )
-
-    return segments
+    return [{"type": "text", "data": {"text": clean_reply_text(model_output)}}]
 
 
 # ═══════════════════════════════════════════════════
@@ -625,29 +403,13 @@ async def send_action(websocket, action: dict[str, Any]) -> None:
     log_event(f"已发送 action — {preview_text(action, 400)}")
 
 
-async def send_segments_split(
+async def send_segments(
     websocket,
     data: dict[str, Any],
     message_segments: list[dict[str, Any]],
 ) -> None:
-    """
-    文字和图片分开发。
-    这样图片失败也不影响文字对话。
-    """
-    text_segments = [seg for seg in message_segments if seg.get("type") == "text"]
-    image_segments = [seg for seg in message_segments if seg.get("type") == "image"]
-
-    if text_segments:
-        text_reply = build_send_msg_action(data, text_segments)
-        await send_action(websocket, text_reply)
-
-    # 稍微等一下，更像真人，也避免 NapCat 连续动作太快
-    if text_segments and image_segments:
-        await asyncio.sleep(random.uniform(0.4, 1.1))
-
-    if image_segments:
-        image_reply = build_send_msg_action(data, image_segments)
-        await send_action(websocket, image_reply)
+    reply = build_send_msg_action(data, message_segments)
+    await send_action(websocket, reply)
 
 
 # ═══════════════════════════════════════════════════
@@ -745,11 +507,7 @@ async def recv_msg(websocket):
                 result = await agent.runtime(task=task)
 
                 model_output = result or "嗯"
-                message_segments = build_message_segments(
-                    model_output=model_output,
-                    user_text=user_text,
-                    session_id=session_id,
-                )
+                message_segments = build_message_segments(model_output=model_output)
 
                 log_event(
                     f"处理完成 — session_id={session_id}, "
@@ -770,7 +528,7 @@ async def recv_msg(websocket):
                     }
                 ]
 
-            await send_segments_split(websocket, data, message_segments)
+            await send_segments(websocket, data, message_segments)
 
     except Exception as e:
         log_event(f"连接异常关闭 — remote={remote}, error={e!r}")
@@ -791,11 +549,6 @@ async def log_ws_request(connection, request):
 
 
 async def main():
-    ensure_meme_dirs()
-
-    log_event(f"表情包宿主机目录：{MEME_DIR}")
-    log_event(f"表情包 NapCat 容器目录：{NAPCAT_MEME_DIR}")
-    log_event(f"表情包路径模式：{MEME_PATH_MODE}")
     log_event(f"群聊触发模式：{GROUP_REPLY_MODE}")
     log_event(f"机器人名称触发词：{BOT_NAMES}")
 
