@@ -52,6 +52,8 @@ BOT_NAMES = [
 agents: dict[str, BaseAgent] = {}
 RELOAD_POLL_SECONDS = 1.0
 LOG_INDENT = 2
+type MessageSegment = dict[str, Any]
+type MessageContent = str | list[MessageSegment]
 
 
 def normalize_log_value(value: object) -> Any:
@@ -117,6 +119,7 @@ SYSTEM_PROMPT = """你叫姜亦衡，正在用 QQ 和别人聊天。
 6. 用户随意，你也随意；对方要是开玩笑，你可以顺手怼回去一点。
 7. 没把握的内容就直接说不知道，别顺着编。
 8. 别主动问“有什么事”“我能帮你什么”这种客服味很重的话。
+9. 如果你想发 QQ 自带表情，只能在回复最后加一个标签，格式是 [QQ表情:14] 这种数字 ID；这个标签不会直接发给用户，只是让程序转成 QQ 表情。
 
 """
 
@@ -358,37 +361,73 @@ def clean_reply_text(text: str) -> str:
     return text or "嗯"
 
 
-def build_message_segments(
-    model_output: str,
-) -> list[dict[str, Any]]:
-    return [{"type": "text", "data": {"text": clean_reply_text(model_output)}}]
+def extract_qq_face_tag(text: str) -> tuple[str, str | None]:
+    if not isinstance(text, str):
+        text = str(text)
+
+    match = re.search(r"\[QQ表情:(\d+)\]", text)
+    face_id = match.group(1) if match else None
+    clean_text = re.sub(r"\[QQ表情:\d+\]", "", text).strip()
+    return clean_text, face_id
+
+
+def build_text_segment(text: str) -> MessageSegment:
+    return {"type": "text", "data": {"text": text}}
+
+
+def build_face_segment(face_id: str) -> MessageSegment:
+    return {"type": "face", "data": {"id": str(face_id)}}
+
+
+def build_message_content(model_output: str) -> MessageContent:
+    raw_text, face_id = extract_qq_face_tag(model_output)
+    clean_text = clean_reply_text(raw_text)
+
+    if not face_id:
+        return clean_text
+
+    segments: list[MessageSegment] = []
+    if clean_text:
+        segments.append(build_text_segment(clean_text))
+    segments.append(build_face_segment(face_id))
+    return segments
 
 
 # ═══════════════════════════════════════════════════
 # 发送动作
 # ═══════════════════════════════════════════════════
-def build_send_msg_action(
+def build_send_msg_params(
     data: dict[str, Any],
-    message_segments: list[dict[str, Any]],
+    message: MessageContent,
+    *,
+    auto_escape: bool = False,
 ) -> dict[str, Any]:
     message_type = data.get("message_type", "private")
-    user_id = str(data.get("user_id", ""))
 
     params: dict[str, Any] = {
-        "message": message_segments,
-        "auto_escape": False,
+        "message": message,
+        "auto_escape": auto_escape,
+        "message_type": "private",
+        "user_id": str(data.get("user_id", "")),
     }
 
     if message_type == "group" and data.get("group_id"):
-        params["message_type"] = "group"
+        params.pop("user_id")
         params["group_id"] = str(data["group_id"])
-    else:
-        params["message_type"] = "private"
-        params["user_id"] = user_id
+        params["message_type"] = "group"
 
+    return params
+
+
+def build_send_msg_action(
+    data: dict[str, Any],
+    message: MessageContent,
+    *,
+    auto_escape: bool = False,
+) -> dict[str, Any]:
     return {
         "action": "send_msg",
-        "params": params,
+        "params": build_send_msg_params(data, message, auto_escape=auto_escape),
     }
 
 
@@ -398,12 +437,14 @@ async def send_action(websocket, action: dict[str, Any]) -> None:
     log_event("已发送 action", action=action)
 
 
-async def send_segments(
+async def send_message(
     websocket,
     data: dict[str, Any],
-    message_segments: list[dict[str, Any]],
+    message: MessageContent,
+    *,
+    auto_escape: bool = False,
 ) -> None:
-    reply = build_send_msg_action(data, message_segments)
+    reply = build_send_msg_action(data, message, auto_escape=auto_escape)
     await send_action(websocket, reply)
 
 
@@ -506,29 +547,22 @@ async def recv_msg(websocket):
                 result = await agent.runtime(task=task)
 
                 model_output = result or "嗯"
-                message_segments = build_message_segments(model_output=model_output)
+                message_content = build_message_content(model_output=model_output)
 
                 log_event(
                     "处理完成",
                     session_id=session_id,
                     model=preview_text(model_output, 150),
-                    segments=message_segments,
+                    message=message_content,
                 )
 
             except Exception as e:
                 log_event("处理出错", session_id=session_id, error=repr(e))
                 traceback.print_exc()
 
-                message_segments = [
-                    {
-                        "type": "text",
-                        "data": {
-                            "text": "刚才卡了一下",
-                        },
-                    }
-                ]
+                message_content = "刚才卡了一下"
 
-            await send_segments(websocket, data, message_segments)
+            await send_message(websocket, data, message_content)
 
     except Exception as e:
         log_event("连接异常关闭", remote=remote, error=repr(e))
