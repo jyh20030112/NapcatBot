@@ -3,6 +3,9 @@ import json
 import os
 import random
 import re
+import subprocess
+import sys
+import time
 import traceback
 from datetime import datetime
 from pathlib import Path
@@ -47,6 +50,7 @@ BOT_NAMES = [
 # 私聊：private:{user_id}
 # 群聊：group:{group_id}
 agents: dict[str, BaseAgent] = {}
+RELOAD_POLL_SECONDS = 1.0
 
 
 def log_event(message: str) -> None:
@@ -68,12 +72,6 @@ SYSTEM_PROMPT = """你叫姜亦衡，正在用 QQ 和别人聊天。
 核心目标：
 像一个真实的 18 岁大学生在随手回消息。
 不要像客服，不要像小说旁白，不要像角色扮演。
-
-身份设定：
-你叫姜亦衡，18 岁，大学生。
-周六周日在便利店兼职。
-平常喜欢窝在寝室打游戏，晚上经常熬夜。
-说话比较随意，有点懒，有时候嘴贫，觉得自己很牛逼，但不要装得太夸张。
 
 你和人聊天时有这些特点：
 1. 刚加上好友时，你并不知道对方是谁；要是对方没自报家门，你一般会直接问，不会装作认识。
@@ -98,31 +96,6 @@ SYSTEM_PROMPT = """你叫姜亦衡，正在用 QQ 和别人聊天。
 7. 没把握的内容就直接说不知道，别顺着编。
 8. 别主动问“有什么事”“我能帮你什么”这种客服味很重的话。
 
-
-示例：
-用户：你是？
-你：你哪位
-
-用户：我是谁
-你：谁知道你是谁
-
-用户：你认识我吗
-你：不认识
-
-用户：[图片]
-你：我不想看
-
-用户：你能看见我发的表情包是什么吗
-你：我不想看
-
-用户：在干啥
-你：寝室躺着呢
-
-用户：下楼喝咖啡吗
-你：必须整杯黑咖啡
-
-用户：几点了
-你：你看下手机啊
 """
 
 
@@ -571,5 +544,56 @@ async def main():
                 log_event(f"关闭会话失败 — session_id={session_id}, error={e!r}")
 
 
+def get_reload_targets() -> list[Path]:
+    root = Path(__file__).resolve().parent
+    files = [Path(__file__).resolve(), root / ".env"]
+    files.extend(sorted(root.glob("*.py")))
+    return sorted({path for path in files if path.exists()})
+
+
+def snapshot_mtimes(paths: list[Path]) -> dict[Path, int]:
+    return {path: path.stat().st_mtime_ns for path in paths}
+
+
+def run_with_reload() -> None:
+    script = Path(__file__).resolve()
+    child_args = [sys.executable, str(script), "--serve"]
+    child_env = os.environ.copy()
+    watched = get_reload_targets()
+    last_mtimes = snapshot_mtimes(watched)
+
+    log_event(f"热重载已开启 — 监听文件：{', '.join(path.name for path in watched)}")
+
+    while True:
+        child = subprocess.Popen(child_args, env=child_env)
+
+        try:
+            while True:
+                time.sleep(RELOAD_POLL_SECONDS)
+
+                current = get_reload_targets()
+                current_mtimes = snapshot_mtimes(current)
+
+                if current_mtimes != last_mtimes:
+                    log_event("检测到文件变化，正在重启机器人")
+                    last_mtimes = current_mtimes
+                    child.terminate()
+                    child.wait()
+                    break
+
+                if child.poll() is not None:
+                    log_event("子进程已退出，正在重启机器人")
+                    last_mtimes = current_mtimes
+                    break
+        except KeyboardInterrupt:
+            log_event("收到退出信号，正在关闭热重载")
+            child.terminate()
+            child.wait()
+            return
+
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    if "--reload" in sys.argv:
+        run_with_reload()
+    else:
+        asyncio.run(main())
