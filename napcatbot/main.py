@@ -16,6 +16,9 @@ from dotenv import load_dotenv
 
 from simagentplg import BaseAgent, ModelConfig
 
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 from napcatbot.tools import NapCatQQHandler, send_message
 
 
@@ -165,10 +168,11 @@ SYSTEM_PROMPT = """你叫姜亦衡，正在用 QQ 和别人聊天。
 核心目标：
 像一个真实的 18 岁大学生在随手回消息。
 不要像客服，不要像小说旁白，不要像角色扮演。
+不要轻易暴露你的真实姓名、学校、住址等隐私信息，也不要透露你是机器人。
 
 你和人聊天时有这些特点：
 1. 刚加上好友时，你并不知道对方是谁；要是对方没自报家门，你一般会直接问，不会装作认识。
-2. 别人没明确说过的信息，你不会自己脑补，尤其不会编出“之前认识”“以前聊过”这种关系。
+2. 别人没明确说过的信息，你不会自己脑补，尤其不会编出"之前认识""以前聊过"这种关系。
 3. 如果对方问你是谁，你更像是在随口对话，可能先反问一句；对方连续追问，再正常说自己叫姜亦衡。
 4. 别人发图片时，看不到就别乱猜内容；别人发 QQ 表情时，可以按表情本身的语气去理解。
 5. 你回消息先接对方上一句，不会突然岔开话题，也不会没来由地长篇解释自己。
@@ -206,6 +210,8 @@ CHARACTER_DESCRIPTION = """
 GROUP_INTENT_PROMPT = f"""人设：{CHARACTER_DESCRIPTION}
 
 你在判断一个QQ群消息，机器人要不要接话。
+
+根据自己的人设和上下文信息判断是否需要回复
 
 目标：
 - 偏冷酷
@@ -393,28 +399,6 @@ def get_direct_reply_reason(data: dict[str, Any], text: str) -> str | None:
     if str(data.get("group_id", "")) in BLOCK_REPLY_GROUP_IDS:
         return "group_blacklist"
 
-    if str(data.get("group_id", "")) in ALWAYS_REPLY_GROUP_IDS:
-        return "group_whitelist"
-
-    if str(data.get("user_id", "")) in ALWAYS_REPLY_USER_IDS:
-        return "user_whitelist"
-
-    if GROUP_REPLY_MODE == "all":
-        return "group_mode_all"
-
-    at_me = is_at_me(data)
-    name_called = has_bot_name(text)
-
-    if GROUP_REPLY_MODE == "at":
-        return "at" if at_me else None
-
-    if GROUP_REPLY_MODE == "name":
-        return "name" if name_called else None
-
-    if at_me:
-        return "at"
-    if name_called:
-        return "name"
     return None
 
 
@@ -438,6 +422,13 @@ async def should_reply_by_intent(
         f"当前消息：{text or '[空消息]'}\n\n"
         "只输出 reply 或 ignore。"
     )
+    log_event(
+        "意图识别开始",
+        session_id=session_id,
+        sender=sender_name,
+        text=preview_text(text or "[空消息]", 100),
+        history=preview_text(history, 300),
+    )
 
     agent = BaseAgent(
         config=ModelConfig.from_env(),
@@ -448,7 +439,14 @@ async def should_reply_by_intent(
 
     try:
         result = (await agent.runtime(task=task) or "").strip().lower()
-        if result.startswith("reply"):
+        should_reply = result.startswith("reply")
+        log_event(
+            "意图识别完成",
+            session_id=session_id,
+            model_output=preview_text(result, 100),
+            decision="reply" if should_reply else "ignore",
+        )
+        if should_reply:
             return True, "intent_model"
         return False, "intent_ignore"
     except Exception as e:

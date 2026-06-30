@@ -1,1 +1,3 @@
-"""NapCat QQ bot."""
+"""NapCat QQ bot package."""
+
+
