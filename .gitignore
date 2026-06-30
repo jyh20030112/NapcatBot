@@ -12,3 +12,4 @@ wheels/
 .env
 
 napcat
+data/

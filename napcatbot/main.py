@@ -2,6 +2,7 @@ import asyncio
 from collections import defaultdict, deque
 import json
 import os
+import random
 import re
 import subprocess
 import sys
@@ -20,6 +21,7 @@ if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from napcatbot.tools import NapCatQQHandler, send_message
+from napcatbot.storage import ChatStore
 
 
 def load_env() -> None:
@@ -31,6 +33,10 @@ def load_env() -> None:
 
 # 在读取任何配置前先加载 .env
 load_env()
+
+CHAT_DB_PATH = Path(os.getenv("CHAT_DB_PATH", "data/chat_history.sqlite3"))
+chat_store = ChatStore(CHAT_DB_PATH)
+GROUP_REPLY_RANDOM_THRESHOLD = 0.3
 
 
 # ═══════════════════════════════════════════════════
@@ -160,6 +166,80 @@ def preview_text(value: object, limit: int = 200) -> str:
         return text[:limit] + "..."
     return text
 
+
+def get_event_group_id(data: dict[str, Any]) -> str | None:
+    if data.get("message_type") != "group":
+        return None
+    group_id = data.get("group_id")
+    if group_id is None:
+        return None
+    return str(group_id)
+
+
+def record_chat_message(
+    *,
+    direction: str,
+    data: dict[str, Any],
+    session_id: str,
+    sender_name: str,
+    text: str,
+    raw_message: Any = None,
+) -> None:
+    try:
+        chat_store.record_message(
+            direction=direction,
+            message_type=str(data.get("message_type", "private")),
+            session_id=session_id,
+            group_id=get_event_group_id(data),
+            user_id=str(data.get("user_id", "")),
+            sender_name=sender_name,
+            text=text,
+            raw_message=raw_message,
+        )
+    except Exception as exc:
+        log_event("聊天记录写入失败", error=repr(exc))
+
+
+def record_outgoing_message(
+    data: dict[str, Any],
+    message: object,
+) -> None:
+    record_chat_message(
+        direction="out",
+        data=data,
+        session_id=get_session_id(data),
+        sender_name="bot",
+        text=(
+            message
+            if isinstance(message, str)
+            else json.dumps(message, ensure_ascii=False)
+        ),
+        raw_message=message,
+    )
+
+
+def get_recent_chat_history(session_id: str, *, limit: int = 50) -> str:
+    try:
+        rows = chat_store.recent_messages(session_id=session_id, limit=limit)
+    except Exception as exc:
+        log_event("聊天记录读取失败", session_id=session_id, error=repr(exc))
+        return "（暂无历史记录）"
+
+    if not rows:
+        return "（暂无历史记录）"
+
+    lines = []
+    for row in rows:
+        direction = "机器人" if row["direction"] == "out" else "用户"
+        group_part = f" 群:{row['group_id']}" if row.get("group_id") else ""
+        user_part = f" QQ:{row['user_id']}" if row.get("user_id") else ""
+        sender = row.get("sender_name") or direction
+        text = str(row.get("text") or "").strip() or "[空消息]"
+        lines.append(
+            f"{row['created_at']} {direction}{group_part}{user_part} {sender}：{text}"
+        )
+    return "\n".join(lines)
+
 # ═══════════════════════════════════════════════════
 # System Prompt
 # ═══════════════════════════════════════════════════
@@ -178,10 +258,18 @@ SYSTEM_PROMPT = """你叫姜亦衡，正在用 QQ 和别人聊天。
 5. 你回消息先接对方上一句，不会突然岔开话题，也不会没来由地长篇解释自己。
 6. 你的回复大多很短，像 QQ 里随手回的消息，通常就是几到十来个字。
 7. 你说话不用 Markdown，不写括号动作，不像写文，也不会故意端着。
-8. 语气随意，别人开玩笑你也会回两句，偶尔嘴欠一点，但还是普通同龄人聊天的感觉。
+8. 语气随意，别人开玩笑你也可以轻轻接一句，但不要攻击、挑衅或阴阳怪气。
 9. 遇到不确定的事，你更常见的反应是“不知道”“没印象”“你哪位”，而不是硬接着编。
 10. 你不会表现得像客服，不会动不动就问“有什么事”“我能帮你什么”，热情也不会过头。
 11. 聊熟一点以后，你会自然开点玩笑，但整体还是懒散、随手、像活人在回消息。
+
+强约束：
+1. 禁止引战，禁止主动挑起性别、地域、政治、饭圈、游戏阵营、学校、职业、收入等对立话题。
+2. 遇到争吵、对线、嘲讽、拉踩、辱骂时，不要站队，不要拱火，不要补刀，不要扩大冲突。
+3. 不要人身攻击，不要嘲笑对方智力、外貌、家庭、能力、收入、学历、地域。
+4. 不要用“急了”“破防”“你不行”“懂不懂”“笑死”这类容易激化矛盾的话。
+5. 如果用户发引战内容，只轻描淡写带过、转移话题或说“不聊这个”。
+6. 允许开玩笑，但必须低冲突、无攻击性、不过界。
 
 聊天规则：
 1. 优先接住用户刚发来的那句话，只回当前这轮，不要自己扩写剧情。
@@ -189,19 +277,22 @@ SYSTEM_PROMPT = """你叫姜亦衡，正在用 QQ 和别人聊天。
 3. 没必要就别解释自己，也别把一句话说成一小段。
 4. 不用 Markdown，不发括号动作，不写成小说旁白。
 5. 不要过度道歉，也别显得太郑重。
-6. 用户随意，你也随意；对方要是开玩笑，你可以顺手怼回去一点。
+6. 用户随意，你也随意；对方要是开玩笑，你只能轻轻接梗，不能怼人、讽刺或挑衅。
 7. 没把握的内容就直接说不知道，别顺着编。
 8. 别主动问“有什么事”“我能帮你什么”这种客服味很重的话。
 9. 回复用户时必须调用 send_qq_message 工具，不要只输出普通文本。
-10. 不要每次回复都带表情。
+10. 默认只发送文字，调用 send_qq_message 时不要传 face_id。
+11. 只有在用户明确要求你发 QQ 表情、对方只发了表情且你只适合用表情回应、或一句纯文字明显不够表达语气时，才允许传 face_id。
+12. 禁止连续两次回复都带 face_id；拿不准时一律不带 face_id。
+13. 不要为了显得亲切、可爱、活跃而加表情。
 """
 
 
 CHARACTER_DESCRIPTION = """
 姜亦衡，18岁，大学生。
 周六周日在便利店兼职，平时大多窝在寝室打游戏，作息偏晚，经常熬夜。
-聊天时像个真实男大学生，回消息随手、短句、带点嘴贫，不端着，也不装深沉。
-他有点懒散，有点自信，偶尔会怼人，但分寸还是像同龄人之间闲聊，不是刻意演戏。
+聊天时像个真实男大学生，回消息随手、短句、轻松一点，不端着，也不装深沉。
+他有点懒散，有点自信，但不攻击别人，不引战，不把玩笑升级成冲突。
 别人问到不熟的事，他第一反应通常是没印象、不确定、直接问回去，不会硬编。
 整体感觉应该像一个活人朋友在回 QQ，不像客服，也不像设定感很重的角色扮演账号。
 """
@@ -213,22 +304,17 @@ GROUP_INTENT_PROMPT = f"""人设：{CHARACTER_DESCRIPTION}
 
 - 根据自己的人设和上下文信息判断是否需要回复
 
+强约束：
+- 任何可能引战、站队、拱火、扩大冲突的消息都输出 ignore。
+- 群里有人争吵、对线、嘲讽、拉踩、辱骂时输出 ignore。
+- 涉及性别、地域、政治、饭圈、游戏阵营、学校、职业、收入等对立话题时，除非是在温和转移话题，否则输出 ignore。
+
 目标：
-- 偏冷酷
 - 只输出 reply 或 ignore。
 
-reply 适合：
-- 明显在抛给全群的话题
-- 明显有梗可接、可吐槽、可调侃
-- 虽然没@机器人，但很像在等人接话
-- 语气上机器人插一句会自然
+reply：回复
 
-ignore 适合：
-- 明显两三个人在对线，和机器人无关
-- 纯通知、纯表情、纯图片、没内容
-- 机器人插话会显得突兀或刷屏
-
-拿不准时，偏活跃一点，但别硬插。
+ignore：不回复
 只输出一个小写单词：reply 或 ignore。"""
 
 
@@ -252,7 +338,6 @@ def build_system_prompt() -> str:
             SYSTEM_PROMPT.strip(),
             "【角色设定】\n" + CHARACTER_DESCRIPTION.strip(),
             "【当前场景】\n" + get_scenario(),
-            "【QQ表情设定】\n" + QQ_FACE_LABELS.__str__().strip(),
         ]
     )
 
@@ -413,11 +498,11 @@ async def should_reply_by_intent(
     data: dict[str, Any],
     text: str,
     session_id: str,
+    recent_history: str,
 ) -> tuple[bool, str]:
     sender_name = get_sender_name(data)
-    history = "\n".join(group_recent_messages.get(session_id, ())) or "（暂无上下文）"
     task = (
-        f"最近群聊：\n{history}\n\n"
+        f"最近50条聊天记录：\n{recent_history}\n\n"
         f"当前发言者：{sender_name}\n"
         f"当前消息：{text or '[空消息]'}\n\n"
         "只输出 reply 或 ignore。"
@@ -427,7 +512,7 @@ async def should_reply_by_intent(
         session_id=session_id,
         sender=sender_name,
         text=preview_text(text or "[空消息]", 100),
-        history=preview_text(history, 300),
+        history=preview_text(recent_history, 600),
     )
 
     agent = BaseAgent(
@@ -493,12 +578,22 @@ def get_session_id(data: dict[str, Any]) -> str:
     return f"private:{user_id}"
 
 
-def build_agent_task(data: dict[str, Any], user_text: str) -> str:
+def build_agent_task(
+    data: dict[str, Any],
+    user_text: str,
+    recent_history: str,
+) -> str:
     if data.get("message_type") == "group":
         sender_name = get_sender_name(data)
-        return f"群聊里，{sender_name}说：{user_text}"
+        return (
+            f"最近50条聊天记录：\n{recent_history}\n\n"
+            f"群聊里，{sender_name}说：{user_text}"
+        )
 
-    return user_text
+    return (
+        f"最近50条聊天记录：\n{recent_history}\n\n"
+        f"当前私聊消息：{user_text}"
+    )
 
 
 # ═══════════════════════════════════════════════════
@@ -508,7 +603,10 @@ async def get_or_create_agent(session_id: str) -> BaseAgent:
     agent = agents.get(session_id)
 
     if agent is None:
-        handler = NapCatQQHandler(log_event=log_event)
+        handler = NapCatQQHandler(
+            log_event=log_event,
+            on_sent=record_outgoing_message,
+        )
         agent = BaseAgent(
             config=ModelConfig.from_env(),
             agent_id=f"YH-{session_id}",
@@ -583,6 +681,15 @@ async def recv_msg(websocket):
             plain_text = extract_plain_text_from_event(data)
             session_id = get_session_id(data)
             sender_name = get_sender_name(data)
+            record_chat_message(
+                direction="in",
+                data=data,
+                session_id=session_id,
+                sender_name=str(sender_name),
+                text=plain_text,
+                raw_message=data.get("message", data.get("raw_message")),
+            )
+            recent_history = get_recent_chat_history(session_id, limit=50)
 
             reply_reason = get_direct_reply_reason(data, plain_text)
             if reply_reason == "group_blacklist":
@@ -601,6 +708,7 @@ async def recv_msg(websocket):
                     data,
                     plain_text,
                     session_id,
+                    recent_history,
                 )
                 if not should_reply:
                     log_event(
@@ -612,6 +720,25 @@ async def recv_msg(websocket):
                     )
                     remember_group_message(session_id, sender_name, plain_text)
                     continue
+                reply_roll = random.random()
+                if reply_roll >= GROUP_REPLY_RANDOM_THRESHOLD:
+                    log_event(
+                        "忽略消息",
+                        mode=GROUP_REPLY_MODE,
+                        message_type=message_type,
+                        text=preview_text(plain_text, 100),
+                        reply_reason="random_gate",
+                        random_value=reply_roll,
+                        threshold=GROUP_REPLY_RANDOM_THRESHOLD,
+                    )
+                    remember_group_message(session_id, sender_name, plain_text)
+                    continue
+                log_event(
+                    "随机回复通过",
+                    session_id=session_id,
+                    random_value=reply_roll,
+                    threshold=GROUP_REPLY_RANDOM_THRESHOLD,
+                )
 
             if reply_reason is None:
                 log_event(
@@ -629,7 +756,7 @@ async def recv_msg(websocket):
                 remember_group_message(session_id, sender_name, plain_text)
                 continue
 
-            task = build_agent_task(data, user_text)
+            task = build_agent_task(data, user_text, recent_history)
 
             log_event(
                 "收到消息",
@@ -668,6 +795,7 @@ async def recv_msg(websocket):
                     data,
                     message_content,
                     log_event=log_event,
+                    on_sent=record_outgoing_message,
                 )
 
             remember_group_message(session_id, sender_name, plain_text)

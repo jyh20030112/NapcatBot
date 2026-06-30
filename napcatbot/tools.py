@@ -9,6 +9,7 @@ from simagentplg import MethodToolHandler, StepOutcome
 
 type MessageSegment = dict[str, Any]
 type MessageContent = str | list[MessageSegment]
+type SentCallback = Callable[[dict[str, Any], MessageContent], None]
 
 
 def clean_reply_text(text: str) -> str:
@@ -131,12 +132,19 @@ async def send_message(
     *,
     auto_escape: bool = False,
     log_event: Callable[..., None] | None = None,
+    on_sent: SentCallback | None = None,
 ) -> None:
     if data.get("message_type") == "group":
         reply = build_group_msg_action(data, message, auto_escape=auto_escape)
     else:
         reply = build_private_msg_action(data, message, auto_escape=auto_escape)
     await send_action(websocket, reply, log_event=log_event)
+    if on_sent is not None:
+        try:
+            on_sent(data, message)
+        except Exception as exc:
+            if log_event is not None:
+                log_event("聊天记录写入失败", error=repr(exc))
 
 
 SEND_QQ_MESSAGE_TOOL = {
@@ -156,7 +164,10 @@ SEND_QQ_MESSAGE_TOOL = {
                 },
                 "face_id": {
                     "type": "string",
-                    "description": "可选 QQ 自带表情 ID，例如 14 表示微笑。",
+                    "description": (
+                        "可选 QQ 自带表情 ID。默认不要填写。"
+                        "只有用户明确要求发表情，或只用表情回应更自然时才填写。"
+                    ),
                 },
                 "auto_escape": {
                     "type": "boolean",
@@ -173,11 +184,17 @@ SEND_QQ_MESSAGE_TOOL = {
 class NapCatQQHandler(MethodToolHandler):
     """Expose the current NapCat message target as an agent tool."""
 
-    def __init__(self, *, log_event: Callable[..., None] | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        log_event: Callable[..., None] | None = None,
+        on_sent: SentCallback | None = None,
+    ) -> None:
         super().__init__((SEND_QQ_MESSAGE_TOOL,))
         self.websocket: Any | None = None
         self.event: dict[str, Any] | None = None
         self.log_event = log_event
+        self.on_sent = on_sent
 
     def set_context(self, websocket: Any, event: dict[str, Any]) -> None:
         self.websocket = websocket
@@ -192,6 +209,8 @@ class NapCatQQHandler(MethodToolHandler):
 
         text = clean_reply_text(str(arguments.get("text", "")))
         face_id = str(arguments.get("face_id", "") or "").strip()
+        if face_id.lower() in {"none", "null", "no", "false", "不用", "不要"}:
+            face_id = ""
         auto_escape = bool(arguments.get("auto_escape", False))
 
         message: MessageContent
@@ -210,6 +229,7 @@ class NapCatQQHandler(MethodToolHandler):
             message,
             auto_escape=auto_escape,
             log_event=self.log_event,
+            on_sent=self.on_sent,
         )
         return StepOutcome(
             {"status": "success", "message": message},
