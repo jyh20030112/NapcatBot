@@ -30,9 +30,6 @@ services:
       # NapCat 插件目录
       - ./napcat/plugins:/app/napcat/plugins
 
-      # 表情包目录：宿主机 ./memes -> 容器 /app/memes
-      - ./memes:/app/memes:ro
-
     # 让容器内可以用 host.docker.internal 访问宿主机
     # 你的 Python bot 跑在宿主机 8082 时，NapCat 里填：
     # ws://host.docker.internal:8082
