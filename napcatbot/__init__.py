@@ -1,0 +1,1 @@
+"""NapCat QQ bot."""

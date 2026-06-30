@@ -2,7 +2,6 @@ import asyncio
 from collections import defaultdict, deque
 import json
 import os
-import random
 import re
 import subprocess
 import sys
@@ -17,10 +16,12 @@ from dotenv import load_dotenv
 
 from simagentplg import BaseAgent, ModelConfig
 
+from napcatbot.tools import NapCatQQHandler, send_message
+
 
 def load_env() -> None:
     """加载项目根目录的 .env 文件。"""
-    env_file = Path(__file__).resolve().parent / ".env"
+    env_file = Path(__file__).resolve().parents[1] / ".env"
     if env_file.exists():
         load_dotenv(env_file)
 
@@ -113,11 +114,12 @@ QQ_FACE_LABELS = {
 # 私聊：private:{user_id}
 # 群聊：group:{group_id}
 agents: dict[str, BaseAgent] = {}
+agent_locks: dict[str, asyncio.Lock] = {}
+napcat_handlers: dict[str, "NapCatQQHandler"] = {}
 RELOAD_POLL_SECONDS = 1.0
 LOG_INDENT = 2
 INTENT_HISTORY_SIZE = 5
 type MessageSegment = dict[str, Any]
-type MessageContent = str | list[MessageSegment]
 group_recent_messages: dict[str, deque[str]] = defaultdict(
     lambda: deque(maxlen=INTENT_HISTORY_SIZE)
 )
@@ -186,7 +188,7 @@ SYSTEM_PROMPT = """你叫姜亦衡，正在用 QQ 和别人聊天。
 6. 用户随意，你也随意；对方要是开玩笑，你可以顺手怼回去一点。
 7. 没把握的内容就直接说不知道，别顺着编。
 8. 别主动问“有什么事”“我能帮你什么”这种客服味很重的话。
-9. 如果你想发 QQ 自带表情，可以在回复最后加一个标签，格式是 [QQ表情:14] 这种数字 ID；这个标签不会直接发给用户，只是让程序转成 QQ 表情。
+9. 回复用户时必须调用 send_qq_message 工具，不要只输出普通文本。
 10. 不要每次回复都带表情。
 """
 
@@ -201,10 +203,12 @@ CHARACTER_DESCRIPTION = """
 """
 
 
-GROUP_INTENT_PROMPT = """你在判断一个QQ群消息，机器人要不要接话。
+GROUP_INTENT_PROMPT = f"""人设：{CHARACTER_DESCRIPTION}
+
+你在判断一个QQ群消息，机器人要不要接话。
 
 目标：
-- 偏活跃，但不要抢话。
+- 偏冷酷
 - 只输出 reply 或 ignore。
 
 reply 适合：
@@ -500,155 +504,39 @@ def build_agent_task(data: dict[str, Any], user_text: str) -> str:
 
 
 # ═══════════════════════════════════════════════════
-# 输出清洗
-# ═══════════════════════════════════════════════════
-def clean_reply_text(text: str) -> str:
-    if not isinstance(text, str):
-        text = str(text)
-
-    text = text.strip()
-    text = text.replace("```", "")
-
-    # 去掉括号动作，保留正常文字
-    bracket_pairs = [
-        ("（", "）"),
-        ("(", ")"),
-        ("【", "】"),
-    ]
-
-    for left, right in bracket_pairs:
-        while left in text and right in text:
-            start = text.find(left)
-            end = text.find(right, start + 1)
-
-            if end == -1:
-                break
-
-            inner = text[start + 1:end]
-
-            if len(inner) <= 30:
-                text = text[:start] + text[end + 1:]
-            else:
-                break
-
-    lines = [line.strip() for line in text.splitlines() if line.strip()]
-
-    if not lines:
-        return "嗯"
-
-    text = " ".join(lines[:2]).strip()
-    text = re.sub(r"^(姜亦衡|小姜|义恒|不知名小卒)\s*[：:]\s*", "", text).strip()
-
-    if len(text) > 45:
-        text = text[:45].rstrip("，。,.、 ") + "…"
-
-    return text or "嗯"
-
-
-def extract_qq_face_tag(text: str) -> tuple[str, str | None]:
-    if not isinstance(text, str):
-        text = str(text)
-
-    match = re.search(r"\[QQ表情:(\d+)\]", text)
-    face_id = match.group(1) if match else None
-    clean_text = re.sub(r"\[QQ表情:\d+\]", "", text).strip()
-    return clean_text, face_id
-
-
-def build_text_segment(text: str) -> MessageSegment:
-    return {"type": "text", "data": {"text": text}}
-
-
-def build_face_segment(face_id: str) -> MessageSegment:
-    return {"type": "face", "data": {"id": str(face_id)}}
-
-
-def build_message_content(model_output: str) -> MessageContent:
-    raw_text, face_id = extract_qq_face_tag(model_output)
-    clean_text = clean_reply_text(raw_text)
-
-    if not face_id:
-        return clean_text
-
-    segments: list[MessageSegment] = []
-    if clean_text:
-        segments.append(build_text_segment(clean_text))
-    segments.append(build_face_segment(face_id))
-    return segments
-
-
-# ═══════════════════════════════════════════════════
-# 发送动作
-# ═══════════════════════════════════════════════════
-def build_send_msg_params(
-    data: dict[str, Any],
-    message: MessageContent,
-    *,
-    auto_escape: bool = False,
-) -> dict[str, Any]:
-    message_type = data.get("message_type", "private")
-
-    params: dict[str, Any] = {
-        "message": message,
-        "auto_escape": auto_escape,
-        "message_type": "private",
-        "user_id": str(data.get("user_id", "")),
-    }
-
-    if message_type == "group" and data.get("group_id"):
-        params.pop("user_id")
-        params["group_id"] = str(data["group_id"])
-        params["message_type"] = "group"
-
-    return params
-
-
-def build_send_msg_action(
-    data: dict[str, Any],
-    message: MessageContent,
-    *,
-    auto_escape: bool = False,
-) -> dict[str, Any]:
-    return {
-        "action": "send_msg",
-        "params": build_send_msg_params(data, message, auto_escape=auto_escape),
-    }
-
-
-async def send_action(websocket, action: dict[str, Any]) -> None:
-    action["echo"] = f"echo-{datetime.now().timestamp()}-{random.randint(1000, 9999)}"
-    await websocket.send(json.dumps(action, ensure_ascii=False))
-    log_event("已发送 action", action=action)
-
-
-async def send_message(
-    websocket,
-    data: dict[str, Any],
-    message: MessageContent,
-    *,
-    auto_escape: bool = False,
-) -> None:
-    reply = build_send_msg_action(data, message, auto_escape=auto_escape)
-    await send_action(websocket, reply)
-
-
-# ═══════════════════════════════════════════════════
 # Agent 管理
 # ═══════════════════════════════════════════════════
 async def get_or_create_agent(session_id: str) -> BaseAgent:
     agent = agents.get(session_id)
 
     if agent is None:
+        handler = NapCatQQHandler(log_event=log_event)
         agent = BaseAgent(
             config=ModelConfig.from_env(),
             agent_id=f"YH-{session_id}",
             system_prompt=build_system_prompt(),
-            enable_tools=False,
+            handlers=[handler],
+            enable_tools=True,
         )
         agents[session_id] = agent
+        napcat_handlers[session_id] = handler
         log_event("创建会话", session_id=session_id)
 
     return agent
+
+
+def get_agent_lock(session_id: str) -> asyncio.Lock:
+    lock = agent_locks.get(session_id)
+    if lock is None:
+        lock = asyncio.Lock()
+        agent_locks[session_id] = lock
+    return lock
+
+
+def refresh_agent_system_prompt(agent: BaseAgent) -> None:
+    agent.system_prompt = build_system_prompt()
+    if agent.messages and agent.messages[0].get("role") == "system":
+        agent.messages[0]["content"] = agent.system_prompt
 
 
 # ═══════════════════════════════════════════════════
@@ -699,6 +587,16 @@ async def recv_msg(websocket):
             sender_name = get_sender_name(data)
 
             reply_reason = get_direct_reply_reason(data, plain_text)
+            if reply_reason == "group_blacklist":
+                log_event(
+                    "忽略消息",
+                    mode=GROUP_REPLY_MODE,
+                    message_type=message_type,
+                    text=preview_text(plain_text, 100),
+                    reply_reason=reply_reason,
+                )
+                remember_group_message(session_id, sender_name, plain_text)
+                continue
 
             if reply_reason is None and message_type == "group":
                 should_reply, reply_reason = await should_reply_by_intent(
@@ -746,21 +644,20 @@ async def recv_msg(websocket):
 
             try:
                 agent = await get_or_create_agent(session_id)
+                handler = napcat_handlers[session_id]
 
                 # 每次更新当前时间
-                agent.system_prompt = build_system_prompt()
+                refresh_agent_system_prompt(agent)
 
                 log_event("开始处理", session_id=session_id, task=preview_text(task, 120))
-                result = await agent.runtime(task=task)
-
-                model_output = result or "嗯"
-                message_content = build_message_content(model_output=model_output)
+                async with get_agent_lock(session_id):
+                    handler.set_context(websocket, data)
+                    result = await agent.runtime(task=task)
 
                 log_event(
                     "处理完成",
                     session_id=session_id,
-                    model=preview_text(model_output, 150),
-                    message=message_content,
+                    tool_result=preview_text(result, 200),
                 )
 
             except Exception as e:
@@ -768,8 +665,13 @@ async def recv_msg(websocket):
                 traceback.print_exc()
 
                 message_content = "刚才卡了一下"
+                await send_message(
+                    websocket,
+                    data,
+                    message_content,
+                    log_event=log_event,
+                )
 
-            await send_message(websocket, data, message_content)
             remember_group_message(session_id, sender_name, plain_text)
 
     except Exception as e:
@@ -817,9 +719,9 @@ async def main():
 
 
 def get_reload_targets() -> list[Path]:
-    root = Path(__file__).resolve().parent
-    files = [Path(__file__).resolve(), root / ".env"]
-    files.extend(sorted(root.glob("*.py")))
+    root = Path(__file__).resolve().parents[1]
+    files = [root / ".env", root / "YH.py"]
+    files.extend(sorted((root / "napcatbot").glob("*.py")))
     return sorted({path for path in files if path.exists()})
 
 
@@ -864,8 +766,12 @@ def run_with_reload() -> None:
             return
 
 
-if __name__ == "__main__":
+def cli() -> None:
     if "--reload" in sys.argv:
         run_with_reload()
     else:
         asyncio.run(main())
+
+
+if __name__ == "__main__":
+    cli()

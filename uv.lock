@@ -711,10 +711,14 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "simagentplg" },
+    { name = "websockets" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "simagentplg", specifier = "==0.2.3" }]
+requires-dist = [
+    { name = "simagentplg", specifier = "==0.2.3" },
+    { name = "websockets", specifier = ">=16.0" },
+]
 
 [[package]]
 name = "openai"
