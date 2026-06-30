@@ -40,10 +40,15 @@ WS_PORT = int(os.getenv("NAPCAT_WS_PORT", "8082"))
 # name       = 只有喊名字才回复
 # at_or_name = @机器人 或 喊名字 才回复，推荐
 GROUP_REPLY_MODE = os.getenv("GROUP_REPLY_MODE", "at_or_name").lower()
+ALWAYS_REPLY_GROUP_IDS = {
+    group_id.strip()
+    for group_id in os.getenv("ALWAYS_REPLY_GROUP_IDS", "").split(",")
+    if group_id.strip()
+}
 
 BOT_NAMES = [
     name.strip()
-    for name in os.getenv("BOT_NAMES", "姜亦衡,小姜,亦衡").split(",")
+    for name in os.getenv("BOT_NAMES", "姜亦衡,小姜,亦衡，蛋总").split(",")
     if name.strip()
 ]
 
@@ -101,7 +106,7 @@ SYSTEM_PROMPT = """你叫姜亦衡，正在用 QQ 和别人聊天。
 1. 刚加上好友时，你并不知道对方是谁；要是对方没自报家门，你一般会直接问，不会装作认识。
 2. 别人没明确说过的信息，你不会自己脑补，尤其不会编出“之前认识”“以前聊过”这种关系。
 3. 如果对方问你是谁，你更像是在随口对话，可能先反问一句；对方连续追问，再正常说自己叫姜亦衡。
-4. 别人发图片、表情包或者 [图片] 给你时，你其实看不到具体内容，只知道对方发了张图，所以你的反应也会基于“看不见图”这个前提。
+4. 别人发图片或表情时，看不到就别乱猜内容。
 5. 你回消息先接对方上一句，不会突然岔开话题，也不会没来由地长篇解释自己。
 6. 你的回复大多很短，像 QQ 里随手回的消息，通常就是几到十来个字。
 7. 你说话不用 Markdown，不写括号动作，不像写文，也不会故意端着。
@@ -119,8 +124,6 @@ SYSTEM_PROMPT = """你叫姜亦衡，正在用 QQ 和别人聊天。
 6. 用户随意，你也随意；对方要是开玩笑，你可以顺手怼回去一点。
 7. 没把握的内容就直接说不知道，别顺着编。
 8. 别主动问“有什么事”“我能帮你什么”这种客服味很重的话。
-9. 如果你想发 QQ 自带表情，只能在回复最后加一个标签，格式是 [QQ表情:14] 这种数字 ID；这个标签不会直接发给用户，只是让程序转成 QQ 表情。
-
 """
 
 
@@ -167,9 +170,6 @@ def strip_cq_codes(raw: str) -> str:
 
     text = raw
     text = re.sub(r"\[CQ:at,qq=[^\]]+\]", "", text)
-    text = re.sub(r"\[CQ:image[^\]]*\]", "[图片]", text)
-    text = re.sub(r"\[CQ:face[^\]]*\]", "[表情]", text)
-    text = re.sub(r"\[CQ:mface[^\]]*\]", "[表情]", text)
     text = re.sub(r"\[CQ:[^\]]+\]", "", text)
 
     return text.strip()
@@ -190,10 +190,6 @@ def extract_plain_text_from_event(data: dict[str, Any]) -> str:
 
             if seg_type == "text":
                 parts.append(str(seg_data.get("text", "")))
-            elif seg_type == "image":
-                parts.append("[图片]")
-            elif seg_type in ("face", "mface"):
-                parts.append("[表情]")
             elif seg_type == "at":
                 continue
 
@@ -257,6 +253,9 @@ def should_reply(data: dict[str, Any], text: str) -> bool:
 
     if message_type != "group":
         return False
+
+    if str(data.get("group_id", "")) in ALWAYS_REPLY_GROUP_IDS:
+        return True
 
     if GROUP_REPLY_MODE == "all":
         return True
@@ -361,36 +360,8 @@ def clean_reply_text(text: str) -> str:
     return text or "嗯"
 
 
-def extract_qq_face_tag(text: str) -> tuple[str, str | None]:
-    if not isinstance(text, str):
-        text = str(text)
-
-    match = re.search(r"\[QQ表情:(\d+)\]", text)
-    face_id = match.group(1) if match else None
-    clean_text = re.sub(r"\[QQ表情:\d+\]", "", text).strip()
-    return clean_text, face_id
-
-
-def build_text_segment(text: str) -> MessageSegment:
-    return {"type": "text", "data": {"text": text}}
-
-
-def build_face_segment(face_id: str) -> MessageSegment:
-    return {"type": "face", "data": {"id": str(face_id)}}
-
-
 def build_message_content(model_output: str) -> MessageContent:
-    raw_text, face_id = extract_qq_face_tag(model_output)
-    clean_text = clean_reply_text(raw_text)
-
-    if not face_id:
-        return clean_text
-
-    segments: list[MessageSegment] = []
-    if clean_text:
-        segments.append(build_text_segment(clean_text))
-    segments.append(build_face_segment(face_id))
-    return segments
+    return clean_reply_text(model_output)
 
 
 # ═══════════════════════════════════════════════════
@@ -584,6 +555,7 @@ async def log_ws_request(connection, request):
 
 async def main():
     log_event("群聊触发模式", mode=GROUP_REPLY_MODE)
+    log_event("群白名单直回", group_ids=sorted(ALWAYS_REPLY_GROUP_IDS))
     log_event("机器人名称触发词", names=BOT_NAMES)
 
     try:
