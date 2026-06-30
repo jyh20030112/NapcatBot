@@ -61,30 +61,34 @@ def build_face_segment(face_id: str) -> MessageSegment:
     return {"type": "face", "data": {"id": str(face_id)}}
 
 
-def build_send_msg_params(
+def build_private_msg_params(
     data: dict[str, Any],
     message: MessageContent,
     *,
     auto_escape: bool = False,
 ) -> dict[str, Any]:
-    message_type = data.get("message_type", "private")
-
-    params: dict[str, Any] = {
+    return {
         "message": message,
         "auto_escape": auto_escape,
         "message_type": "private",
         "user_id": str(data.get("user_id", "")),
     }
 
-    if message_type == "group" and data.get("group_id"):
-        params.pop("user_id")
-        params["group_id"] = str(data["group_id"])
-        params["message_type"] = "group"
 
-    return params
+def build_group_msg_params(
+    data: dict[str, Any],
+    message: MessageContent,
+    *,
+    auto_escape: bool = False,
+) -> dict[str, Any]:
+    return {
+        "group_id": str(data.get("group_id", "")),
+        "message": message,
+        "auto_escape": auto_escape,
+    }
 
 
-def build_send_msg_action(
+def build_private_msg_action(
     data: dict[str, Any],
     message: MessageContent,
     *,
@@ -92,7 +96,19 @@ def build_send_msg_action(
 ) -> dict[str, Any]:
     return {
         "action": "send_msg",
-        "params": build_send_msg_params(data, message, auto_escape=auto_escape),
+        "params": build_private_msg_params(data, message, auto_escape=auto_escape),
+    }
+
+
+def build_group_msg_action(
+    data: dict[str, Any],
+    message: MessageContent,
+    *,
+    auto_escape: bool = False,
+) -> dict[str, Any]:
+    return {
+        "action": "send_group_msg",
+        "params": build_group_msg_params(data, message, auto_escape=auto_escape),
     }
 
 
@@ -116,7 +132,10 @@ async def send_message(
     auto_escape: bool = False,
     log_event: Callable[..., None] | None = None,
 ) -> None:
-    reply = build_send_msg_action(data, message, auto_escape=auto_escape)
+    if data.get("message_type") == "group":
+        reply = build_group_msg_action(data, message, auto_escape=auto_escape)
+    else:
+        reply = build_private_msg_action(data, message, auto_escape=auto_escape)
     await send_action(websocket, reply, log_event=log_event)
 
 
@@ -124,7 +143,10 @@ SEND_QQ_MESSAGE_TOOL = {
     "type": "function",
     "function": {
         "name": "send_qq_message",
-        "description": "向当前 QQ 私聊或群聊发送一条回复，并结束本轮对话。",
+        "description": (
+            "向当前 QQ 私聊或群聊发送一条回复，并结束本轮对话。"
+            "私聊使用 send_msg，群聊使用 send_group_msg。"
+        ),
         "parameters": {
             "type": "object",
             "properties": {
