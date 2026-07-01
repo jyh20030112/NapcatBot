@@ -157,7 +157,7 @@ class NapcatActionHandler(MethodToolHandler):
         group_id = self._require_group_id()
         user_id = arguments.get("user_id")
         try:
-            user_id = int(user_id)
+            user_id = int(user_id)  # ty:ignore[invalid-argument-type]
         except (TypeError, ValueError):
             log_json(
                 logger,

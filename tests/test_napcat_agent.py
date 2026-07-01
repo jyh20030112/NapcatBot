@@ -1,4 +1,5 @@
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from typing import Any
@@ -9,12 +10,29 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(SIMAGENT_SRC))
 
 from app.core.message import normalize_group_message
-from app.core.topic_tracker import TopicTracker
-from app.core.group_state import GroupState
+from app.core.group_state import GroupState, TopicState
 from app.llm.napcat_actions import NapcatActionHandler
 from app.core.decision import ReplyDecision
 from app.core.decision_postcheck import post_check_decision
 from app.core.context_builder import ContextBuilder
+from app.core.topic_store import TopicStore
+
+
+def _topic_for_message(
+    state: GroupState,
+    message,
+    *,
+    risk_level: str = "normal",
+) -> TopicState:
+    topic = TopicState(
+        topic_id="topic_1",
+        title=message.text[:24] or "新话题",
+        summary=message.text[:120],
+        risk_level=risk_level,
+    )
+    state.topics[topic.topic_id] = topic
+    state.record_topic_message(topic, message)
+    return topic
 
 
 class FakeSender:
@@ -90,47 +108,44 @@ class NapcatAgentTests(unittest.IsolatedAsyncioTestCase):
             ],
         )
 
-    def test_topic_tracker_maps_reply_to_existing_topic(self) -> None:
-        tracker = TopicTracker()
-        state = GroupState(group_id=100)
-        first = normalize_group_message(
-            {
-                "post_type": "message",
-                "message_type": "group",
-                "group_id": 100,
-                "user_id": 200,
-                "message_id": "m1",
-                "sender": {"nickname": "A"},
-                "message": "NapCat websocket 怎么接",
-            },
-            bot_id=123,
-            bot_name="蛋总",
-        )
-        assert first is not None
-        state.add_message(first)
-        topic = tracker.assign_topic(first, state)
+    def test_topic_store_persists_message_topic_mapping(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = TopicStore(Path(temp_dir) / "topics.sqlite3")
+            message = normalize_group_message(
+                {
+                    "post_type": "message",
+                    "message_type": "group",
+                    "group_id": 100,
+                    "user_id": 200,
+                    "message_id": "m1",
+                    "sender": {"nickname": "A"},
+                    "message": "NapCat websocket 怎么接",
+                },
+                bot_id=123,
+                bot_name="蛋总",
+            )
+            assert message is not None
 
-        second = normalize_group_message(
-            {
-                "post_type": "message",
-                "message_type": "group",
-                "group_id": 100,
-                "user_id": 201,
-                "message_id": "m2",
-                "sender": {"nickname": "B"},
-                "message": [
-                    {"type": "reply", "data": {"id": "m1"}},
-                    {"type": "text", "data": {"text": "监听哪个端口"}},
-                ],
-            },
-            bot_id=123,
-            bot_name="蛋总",
-        )
-        assert second is not None
-        state.add_message(second)
-        reply_topic = tracker.assign_topic(second, state)
+            topic = store.create_topic(
+                group_id=100,
+                title="NapCat WebSocket",
+                summary="讨论 NapCat WebSocket 连接",
+            )
+            assigned = store.assign_message_to_topic(
+                group_id=100,
+                message=message,
+                topic_id=topic["id"],
+            )
+            mapped = store.get_topic_by_message(group_id=100, message_id="m1")
 
-        self.assertEqual(reply_topic.topic_id, topic.topic_id)
+            self.assertEqual(assigned["id"], topic["id"])
+            self.assertIsNotNone(mapped)
+            assert mapped is not None
+            self.assertEqual(mapped["topic_no"], topic["topic_no"])
+            self.assertEqual(
+                store.get_topic_messages(topic["id"], limit=5)[0]["text"],
+                "NapCat websocket 怎么接",
+            )
 
     def test_reply_decision_from_payload_validates_fields(self) -> None:
         decision = ReplyDecision.from_payload(
@@ -167,7 +182,7 @@ class NapcatAgentTests(unittest.IsolatedAsyncioTestCase):
         )
         assert message is not None
         state = GroupState(group_id=100)
-        topic = TopicTracker().assign_topic(message, state)
+        topic = _topic_for_message(state, message)
         decision = ReplyDecision(
             should_reply=True,
             topic_id=topic.topic_id,
@@ -208,7 +223,7 @@ class NapcatAgentTests(unittest.IsolatedAsyncioTestCase):
         )
         assert message is not None
         state = GroupState(group_id=100)
-        topic = TopicTracker().assign_topic(message, state)
+        topic = _topic_for_message(state, message, risk_level="conflict")
         decision = ReplyDecision(
             should_reply=True,
             topic_id=topic.topic_id,
@@ -247,7 +262,7 @@ class NapcatAgentTests(unittest.IsolatedAsyncioTestCase):
         assert message is not None
         state = GroupState(group_id=100)
         state.add_message(message)
-        topic = TopicTracker().assign_topic(message, state)
+        topic = _topic_for_message(state, message)
         decision = ReplyDecision(
             should_reply=True,
             topic_id=topic.topic_id,

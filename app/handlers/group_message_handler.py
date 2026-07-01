@@ -8,7 +8,7 @@ from app.core.decision_postcheck import post_check_decision
 from app.core.group_state import GroupState
 from app.core.json_logging import log_json
 from app.core.message import normalize_group_message
-from app.core.topic_tracker import TopicTracker
+from app.services.topic_agent_service import TopicAgentService
 from app.services.agent_service import NapcatGroupAgent
 from app.services.decision_service import DecisionService
 
@@ -26,7 +26,7 @@ class GroupMessageHandler:
         self.bot_id = bot_id
         self.bot_name = bot_name
         self.agent = agent
-        self.topic_tracker = TopicTracker()
+        self.topic_agent = TopicAgentService()
         self.context_builder = ContextBuilder(bot_name=bot_name)
         self.decision_service = DecisionService(
             context_builder=self.context_builder,
@@ -75,7 +75,7 @@ class GroupMessageHandler:
         )
         state.add_message(message)
         known_topics = set(state.topics)
-        topic = self.topic_tracker.assign_topic(message, state)
+        topic = await self.topic_agent.assign_topic(message, state)
         log_json(
             logger,
             logging.INFO,
@@ -152,6 +152,7 @@ class GroupMessageHandler:
 
     async def shutdown(self) -> None:
         await self.decision_service.shutdown()
+        await self.topic_agent.shutdown()
 
 
 def _segment_types(message: Any) -> list[str]:
