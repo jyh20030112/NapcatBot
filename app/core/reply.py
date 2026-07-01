@@ -68,9 +68,7 @@ class ReplyDecision:
             ReplyIntent,
             default="SILENCE",
         )
-        should_reply = bool(payload.get("should_reply", False))
-        if intent == "SILENCE":
-            should_reply = False
+        should_reply = intent != "SILENCE"
 
         confidence = _float_between(payload.get("confidence"), 0.0, 1.0)
         return cls(

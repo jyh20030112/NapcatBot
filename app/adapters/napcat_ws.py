@@ -24,6 +24,18 @@ class NapcatWebSocketAdapter:
         self.port = port
         self._websocket: Any | None = None
         self._send_lock = asyncio.Lock()
+        self._dry_run_actions = False
+
+    def set_action_dry_run(self, enabled: bool) -> None:
+        if self._dry_run_actions == enabled:
+            return
+        self._dry_run_actions = enabled
+        log_json(
+            logger,
+            logging.INFO,
+            "napcat_action_dry_run_changed",
+            enabled=enabled,
+        )
 
     async def run_forever(self, handler: GroupMessageHandler) -> None:
         import websockets
@@ -50,7 +62,7 @@ class NapcatWebSocketAdapter:
         handler: GroupMessageHandler,
     ) -> None:
         remote = getattr(websocket, "remote_address", None)
-        log_json(logger, logging.INFO, "napcat_ws_connected", remote=remote)
+        log_json(logger, logging.DEBUG, "napcat_ws_connected", remote=remote)
         self._websocket = websocket
         try:
             async for raw_payload in websocket:
@@ -62,12 +74,12 @@ class NapcatWebSocketAdapter:
         finally:
             if self._websocket is websocket:
                 self._websocket = None
-            log_json(logger, logging.INFO, "napcat_ws_disconnected", remote=remote)
+            log_json(logger, logging.DEBUG, "napcat_ws_disconnected", remote=remote)
 
     async def _log_ws_request(self, connection: Any, request: Any) -> None:
         log_json(
             logger,
-            logging.INFO,
+            logging.DEBUG,
             "napcat_ws_handshake",
             remote=getattr(connection, "remote_address", None),
             path=getattr(request, "path", None),
@@ -79,14 +91,27 @@ class NapcatWebSocketAdapter:
         action: str,
         params: dict[str, Any],
     ) -> dict[str, Any]:
-        if self._websocket is None:
-            raise RuntimeError("NapCat websocket is not connected")
-
         payload = {
             "action": action,
             "params": params,
             "echo": f"echo-{uuid4().hex}",
         }
+        if self._dry_run_actions:
+            log_json(
+                logger,
+                logging.INFO,
+                "napcat_action_dry_run",
+                action=action,
+                echo=payload["echo"],
+                group_id=params.get("group_id"),
+                message_len=_message_len(params.get("message")),
+                params=params,
+            )
+            return {"status": "dry_run", "echo": payload["echo"]}
+
+        if self._websocket is None:
+            raise RuntimeError("NapCat websocket is not connected")
+
         started_at = time.monotonic()
         async with self._send_lock:
             await self._websocket.send(json.dumps(payload, ensure_ascii=False))
@@ -151,7 +176,7 @@ def _log_event_summary(event: dict[str, Any]) -> None:
 
     log_json(
         logger,
-        logging.INFO,
+        logging.DEBUG,
         "napcat_event",
         post_type=post_type,
         self_id=event.get("self_id"),

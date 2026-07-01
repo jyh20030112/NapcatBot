@@ -33,6 +33,16 @@ def configure_json_logging(*, level: int = logging.INFO) -> None:
     handler.setFormatter(JsonFormatter())
     logging.basicConfig(level=level, handlers=[handler], force=True)
 
+    for logger_name in (
+        "httpx",
+        "httpcore",
+        "websockets",
+        "websockets.server",
+        "napcat_topic_classifier",
+        "napcat_group_agent",
+    ):
+        logging.getLogger(logger_name).setLevel(logging.WARNING)
+
 
 def log_json(
     logger: logging.Logger,

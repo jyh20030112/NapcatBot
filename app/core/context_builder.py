@@ -53,7 +53,7 @@ class ContextBuilder:
         ) or "无"
 
         return f"""
-你正在处理一条 QQ 群聊消息。请判断机器人这轮该不该回复，以及回复意图。
+你正在处理一条 QQ 群聊消息。判断该消息的回复意图。
 
 【机器人昵称】
 {self.bot_name}

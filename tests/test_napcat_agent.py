@@ -189,6 +189,24 @@ class NapcatAgentTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(decision.reply_intent, "ANSWER")
         self.assertEqual(decision.confidence, 1.0)
 
+    def test_reply_decision_intent_overrides_conflicting_should_reply(self) -> None:
+        decision = ReplyDecision.from_payload(
+            {
+                "should_reply": False,
+                "topic_id": "topic_1",
+                "reply_intent": "ANSWER",
+                "reply_style": "short_explain",
+                "risk_level": "normal",
+                "reply_target": "current_user",
+                "confidence": 0.9,
+                "reason": "用户明确提及机器人昵称询问项目启动状态",
+            },
+            fallback_topic_id="fallback",
+        )
+
+        self.assertTrue(decision.should_reply)
+        self.assertEqual(decision.reply_intent, "ANSWER")
+
     def test_postcheck_silences_low_confidence_decision(self) -> None:
         message = normalize_group_message(
             {

@@ -213,7 +213,7 @@ class TopicStore:
             select text from messages
             where topic_id = ?
             order by created_at desc, id desc
-            limit 4
+            limit 50
             """,
             (topic_id,),
         ).fetchall()

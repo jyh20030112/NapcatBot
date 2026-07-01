@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -22,10 +23,12 @@ class GroupMessageHandler:
         bot_id: int,
         bot_name: str,
         agent: NapcatReplyAgent,
+        hide: bool = False,
     ) -> None:
         self.bot_id = bot_id
         self.bot_name = bot_name
         self.agent = agent
+        self.hide = hide
         self.context_builder = ContextBuilder(bot_name=bot_name)
         self.topic_agent = TopicAgentService(
             context_builder=self.context_builder,
@@ -34,8 +37,13 @@ class GroupMessageHandler:
             context_builder=self.context_builder,
         )
         self.group_states: dict[int, GroupState] = {}
+        self._reload_lock = asyncio.Lock()
 
     async def handle_event(self, event: dict[str, Any]) -> None:
+        async with self._reload_lock:
+            await self._handle_event_locked(event)
+
+    async def _handle_event_locked(self, event: dict[str, Any]) -> None:
         message = normalize_group_message(
             event,
             bot_id=self.bot_id,
@@ -54,6 +62,13 @@ class GroupMessageHandler:
             )
             return
 
+        print(
+            f"\n========== new group message "
+            f"group={message.group_id} "
+            f"message={message.message_id} "
+            f"user={message.user_id} ==========",
+            flush=True,
+        )
         log_json(
             logger,
             logging.INFO,
@@ -138,6 +153,23 @@ class GroupMessageHandler:
                 },
             )
         decision = checked_decision
+        if self.hide:
+            log_json(
+                logger,
+                logging.DEBUG,
+                "hide_mode_reply_dry_run",
+                group_id=message.group_id,
+                message_id=message.message_id,
+                topic_id=topic.topic_id,
+                should_reply=decision.should_reply,
+                intent=decision.reply_intent,
+                style=decision.reply_style,
+                target=decision.reply_target,
+                risk=decision.risk_level,
+                confidence=round(decision.confidence, 2),
+                reason=_preview(decision.reason),
+            )
+
         task = self.context_builder.build_action_task(
             message=message,
             topic=topic,
@@ -152,9 +184,49 @@ class GroupMessageHandler:
             decision=decision,
         )
 
+    async def reload_runtime(
+        self,
+        *,
+        bot_id: int,
+        bot_name: str,
+        agent: NapcatReplyAgent,
+        hide: bool = False,
+    ) -> None:
+        async with self._reload_lock:
+            old_agent = self.agent
+            old_topic_agent = self.topic_agent
+            old_decision_service = self.decision_service
+
+            self.bot_id = bot_id
+            self.bot_name = bot_name
+            self.agent = agent
+            self.hide = hide
+            self.context_builder = ContextBuilder(bot_name=bot_name)
+            self.topic_agent = TopicAgentService(
+                context_builder=self.context_builder,
+            )
+            self.decision_service = DecisionService(
+                context_builder=self.context_builder,
+            )
+
+            await old_decision_service.shutdown()
+            await old_topic_agent.shutdown()
+            await old_agent.shutdown()
+
+            log_json(
+                logger,
+                logging.INFO,
+                "runtime_reloaded",
+                bot_id=bot_id,
+                bot_name=bot_name,
+                groups=len(self.group_states),
+                hide=hide,
+            )
+
     async def shutdown(self) -> None:
         await self.decision_service.shutdown()
         await self.topic_agent.shutdown()
+        await self.agent.shutdown()
 
 
 def _segment_types(message: Any) -> list[str]:

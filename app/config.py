@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -10,10 +11,11 @@ class Settings:
     napcat_ws_port: int
     bot_id: int
     bot_name: str = "蛋总"
+    hide: bool = False
 
     @classmethod
-    def from_env(cls) -> "Settings":
-        load_dotenv()
+    def from_env(cls, *, env_path: str | Path = ".env") -> "Settings":
+        load_dotenv(dotenv_path=env_path, override=True)
 
         ws_host = (
             os.getenv("NAPCAT_WS_HOST")
@@ -27,6 +29,7 @@ class Settings:
         ).strip()
         bot_id_raw = os.getenv("BOT_ID", "").strip()
         bot_name = os.getenv("BOT_NAME", "蛋总").strip() or "蛋总"
+        hide = _env_bool(os.getenv("HIDE"), default=False)
 
         try:
             ws_port = int(ws_port_raw)
@@ -44,4 +47,12 @@ class Settings:
             napcat_ws_port=ws_port,
             bot_id=bot_id,
             bot_name=bot_name,
+            hide=hide,
         )
+
+
+
+def _env_bool(value: str | None, *, default: bool) -> bool:
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}

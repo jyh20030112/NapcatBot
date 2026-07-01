@@ -72,7 +72,7 @@ class TopicAgentService:
                 )
                 log_json(
                     logger,
-                    logging.INFO,
+                    logging.DEBUG,
                     "topic_classified",
                     group_id=message.group_id,
                     message_id=message.message_id,
@@ -103,7 +103,7 @@ class TopicAgentService:
 
         log_json(
             logger,
-            logging.INFO,
+            logging.DEBUG,
             "topic_classified",
             group_id=message.group_id,
             message_id=message.message_id,
@@ -166,8 +166,8 @@ def _sync_topic_state(
         topic.last_active_at = float(topic_row["updated_at"])  # ty:ignore[invalid-argument-type]
 
     state.record_topic_message(topic, message)
-    recent_text = " / ".join(item.text for item in topic.last_messages[-4:])
-    topic.summary = recent_text[:240] or topic.summary
+    recent_text = " / ".join(item.text for item in topic.last_messages[-20:])
+    topic.summary = recent_text[:] or topic.summary
     topic.risk_level = detect_risk(recent_text)
     return topic
 
