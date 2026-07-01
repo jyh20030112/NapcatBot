@@ -80,7 +80,7 @@ SEND_AT_MSG_TOOL = {
 }
 
 
-class NapcatActionHandler(MethodToolHandler):
+class NapcatActionToolHandler(MethodToolHandler):
     def __init__(self, sender: NapcatActionSender) -> None:
         super().__init__((SKIP_REPLY_TOOL, SEND_MSG_TOOL, SEND_AT_MSG_TOOL))
         self.sender = sender

@@ -9,8 +9,8 @@ from app.core.group_state import GroupState
 from app.core.json_logging import log_json
 from app.core.message import normalize_group_message
 from app.services.topic_agent_service import TopicAgentService
-from app.services.agent_service import NapcatGroupAgent
-from app.services.decision_service import DecisionService
+from app.services.reply_agent_service import NapcatReplyAgent
+from app.services.decision_agent_service import DecisionService
 
 logger = logging.getLogger(__name__)
 
@@ -21,13 +21,15 @@ class GroupMessageHandler:
         *,
         bot_id: int,
         bot_name: str,
-        agent: NapcatGroupAgent,
+        agent: NapcatReplyAgent,
     ) -> None:
         self.bot_id = bot_id
         self.bot_name = bot_name
         self.agent = agent
-        self.topic_agent = TopicAgentService()
         self.context_builder = ContextBuilder(bot_name=bot_name)
+        self.topic_agent = TopicAgentService(
+            context_builder=self.context_builder,
+        )
         self.decision_service = DecisionService(
             context_builder=self.context_builder,
         )

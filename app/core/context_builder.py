@@ -1,11 +1,34 @@
 from app.core.group_state import GroupState, TopicState
 from app.core.message import BotMessage
-from app.core.decision import ReplyDecision
+from app.core.reply_decision import ReplyDecision
 
 
 class ContextBuilder:
     def __init__(self, *, bot_name: str) -> None:
         self.bot_name = bot_name
+
+    def build_topic_task(
+        self,
+        *,
+        message: BotMessage,
+    ) -> str:
+        return f"""
+请为当前 QQ 群消息归类话题。
+
+当前消息：
+- group_id: {message.group_id}
+- message_id: {message.message_id}
+- user_id: {message.user_id}
+- nickname: {message.nickname}
+- text: {message.text}
+- reply_to: {message.reply_to or "无"}
+
+必须按顺序使用工具：
+1. list_recent_topics(group_id={message.group_id}, limit=10)
+2. 必要时 get_topic_messages(topic_id, limit=5)
+3. 如果属于已有话题，调用 assign_message_to_topic(group_id, message_id, topic_id, msg)
+4. 如果是新话题，调用 create_topic 后再调用 assign_message_to_topic
+""".strip()
 
     def build_decision_task(
         self,
@@ -96,7 +119,7 @@ topic_id: {topic.topic_id}
         ) or "无"
 
         return f"""
-你正在根据 ReplyDecision 执行 QQ 群聊动作。不要重新做意图识别，只按决策生成自然回复并调用工具。
+你正在根据 ReplyDecision 执行 QQ 群聊动作。按决策生成自然回复并调用工具。
 
 【机器人昵称】
 {self.bot_name}

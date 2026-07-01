@@ -11,8 +11,8 @@ sys.path.insert(0, str(SIMAGENT_SRC))
 
 from app.core.message import normalize_group_message
 from app.core.group_state import GroupState, TopicState
-from app.llm.napcat_actions import NapcatActionHandler
-from app.core.decision import ReplyDecision
+from app.llm.napcat_action_tools import NapcatActionToolHandler
+from app.core.reply_decision import ReplyDecision
 from app.core.decision_postcheck import post_check_decision
 from app.core.context_builder import ContextBuilder
 from app.core.topic_store import TopicStore
@@ -76,7 +76,7 @@ class NapcatAgentTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_send_msg_tool_uses_current_group(self) -> None:
         sender = FakeSender()
-        handler = NapcatActionHandler(sender)
+        handler = NapcatActionToolHandler(sender)
         handler.begin_turn(group_id=100)
 
         outcome = await handler.dispatch("send_msg", {"message": "**你好**"})
@@ -89,7 +89,7 @@ class NapcatAgentTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_send_at_msg_tool_uses_onebot_segments(self) -> None:
         sender = FakeSender()
-        handler = NapcatActionHandler(sender)
+        handler = NapcatActionToolHandler(sender)
         handler.begin_turn(group_id=100)
 
         outcome = await handler.dispatch(
@@ -146,6 +146,29 @@ class NapcatAgentTests(unittest.IsolatedAsyncioTestCase):
                 store.get_topic_messages(topic["id"], limit=5)[0]["text"],
                 "NapCat websocket 怎么接",
             )
+
+
+    def test_topic_context_uses_context_builder(self) -> None:
+        message = normalize_group_message(
+            {
+                "post_type": "message",
+                "message_type": "group",
+                "group_id": 100,
+                "user_id": 200,
+                "message_id": "m1",
+                "sender": {"nickname": "A"},
+                "message": "NapCat websocket 怎么接",
+            },
+            bot_id=123,
+            bot_name="蛋总",
+        )
+        assert message is not None
+
+        task = ContextBuilder(bot_name="蛋总").build_topic_task(message=message)
+
+        self.assertIn("list_recent_topics", task)
+        self.assertIn("assign_message_to_topic", task)
+        self.assertIn("message_id: m1", task)
 
     def test_reply_decision_from_payload_validates_fields(self) -> None:
         decision = ReplyDecision.from_payload(

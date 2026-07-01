@@ -4,10 +4,10 @@ import asyncio
 
 from simagentplg import BaseAgent, ModelConfig
 
-from app.core.decision import ReplyDecision
+from app.core.reply_decision import ReplyDecision
 from app.core.group_state import GroupState, TopicState
 from app.core.message import BotMessage
-from app.llm.napcat_actions import NapcatActionHandler, NapcatActionSender
+from app.llms_tools.napcat_action_tools import NapcatActionToolHandler, NapcatActionSender
 
 
 SYSTEM_PROMPT = """
@@ -30,7 +30,7 @@ SYSTEM_PROMPT = """
 """.strip()
 
 
-class NapcatGroupAgent:
+class NapcatReplyAgent:
     def __init__(
         self,
         *,
@@ -38,7 +38,7 @@ class NapcatGroupAgent:
         config: ModelConfig | None = None,
         max_steps: int = 4,
     ) -> None:
-        self.action_handler = NapcatActionHandler(sender)
+        self.action_handler = NapcatActionToolHandler(sender)
         self.agent = BaseAgent(
             config=config or ModelConfig.from_env(),
             agent_id="napcat_group_agent",

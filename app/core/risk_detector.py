@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.core.decision import RiskLevel
+from app.core.reply_decision import RiskLevel
 
 
 CONFLICT_WORDS = (

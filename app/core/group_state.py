@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 import time
 from typing import Literal
 
-from app.core.decision import ReplyDecision
+from app.core.reply_decision import ReplyDecision
 from app.core.message import BotMessage
 
 

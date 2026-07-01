@@ -6,12 +6,13 @@ from pathlib import Path
 
 from simagentplg import BaseAgent, ModelConfig
 
+from app.core.context_builder import ContextBuilder
 from app.core.group_state import GroupState, TopicState
 from app.core.json_logging import log_json
 from app.core.message import BotMessage
 from app.core.risk_detector import detect_risk
 from app.core.topic_store import TopicStore
-from app.llm.topic_tools import TopicToolHandler
+from app.llms_tools.napcat_topic_tools import TopicToolHandler
 
 logger = logging.getLogger(__name__)
 
@@ -36,10 +37,12 @@ class TopicAgentService:
     def __init__(
         self,
         *,
+        context_builder: ContextBuilder,
         store: TopicStore | None = None,
         config: ModelConfig | None = None,
         max_steps: int = 8,
     ) -> None:
+        self.context_builder = context_builder
         self.store = store or TopicStore(_topic_db_path())
         self.tool_handler = TopicToolHandler(self.store)
         self.agent = BaseAgent(
@@ -80,7 +83,7 @@ class TopicAgentService:
                 return _sync_topic_state(assigned, message, state)
 
         self.tool_handler.begin_turn(message)
-        task = _build_topic_task(message)
+        task = self.context_builder.build_topic_task(message=message)
         try:
             await self.agent.runtime(task=task)
         except Exception:
@@ -140,25 +143,6 @@ class TopicAgentService:
     async def shutdown(self) -> None:
         await self.agent.shutdown()
 
-
-def _build_topic_task(message: BotMessage) -> str:
-    return f"""
-请为当前 QQ 群消息归类话题。
-
-当前消息：
-- group_id: {message.group_id}
-- message_id: {message.message_id}
-- user_id: {message.user_id}
-- nickname: {message.nickname}
-- text: {message.text}
-- reply_to: {message.reply_to or "无"}
-
-必须按顺序使用工具：
-1. list_recent_topics(group_id={message.group_id}, limit=10)
-2. 必要时 get_topic_messages(topic_id, limit=5)
-3. 如果属于已有话题，调用 assign_message_to_topic(group_id, message_id, topic_id, msg)
-4. 如果是新话题，调用 create_topic 后再调用 assign_message_to_topic
-""".strip()
 
 
 def _sync_topic_state(
