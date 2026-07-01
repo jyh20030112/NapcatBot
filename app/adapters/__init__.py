@@ -1,0 +1,1 @@
+"""NapCat adapter layer."""

@@ -1,13 +1,9 @@
 [project]
-name = "napcatbot"
+name = "napcatqq"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "simagentplg==0.2.3",
-    "websockets>=16.0",
 ]
-
-[project.scripts]
-napcatbot = "napcatbot.main:cli"
