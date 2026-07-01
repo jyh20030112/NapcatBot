@@ -1,6 +1,6 @@
 from app.core.group_state import GroupState, TopicState
 from app.core.message import BotMessage
-from app.core.reply_decision import ReplyDecision
+from app.core.reply import ReplyDecision
 
 
 class ContextBuilder:

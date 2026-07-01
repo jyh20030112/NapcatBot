@@ -4,7 +4,7 @@ import asyncio
 
 from simagentplg import BaseAgent, ModelConfig
 
-from app.core.reply_decision import ReplyDecision
+from app.core.reply import ReplyDecision
 from app.core.group_state import GroupState, TopicState
 from app.core.message import BotMessage
 from app.llms_tools.napcat_action_tools import NapcatActionToolHandler, NapcatActionSender

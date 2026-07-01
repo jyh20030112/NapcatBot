@@ -10,7 +10,7 @@ from app.core.context_builder import ContextBuilder
 from app.core.group_state import GroupState, TopicState
 from app.core.json_logging import log_json
 from app.core.message import BotMessage
-from app.core.risk_detector import detect_risk
+from app.core.reply import detect_risk
 from app.core.topic_store import TopicStore
 from app.llms_tools.napcat_topic_tools import TopicToolHandler
 

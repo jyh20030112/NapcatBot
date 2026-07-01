@@ -7,7 +7,7 @@ from typing import Any, Protocol
 from simagentplg import MethodToolHandler, StepOutcome
 
 from app.core.json_logging import log_json
-from app.core.reply_postprocess import clean_reply
+from app.core.reply import clean_reply
 
 logger = logging.getLogger(__name__)
 

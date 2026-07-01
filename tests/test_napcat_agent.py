@@ -11,8 +11,8 @@ sys.path.insert(0, str(SIMAGENT_SRC))
 
 from app.core.message import normalize_group_message
 from app.core.group_state import GroupState, TopicState
-from app.llm.napcat_action_tools import NapcatActionToolHandler
-from app.core.reply_decision import ReplyDecision
+from app.llms_tools.napcat_action_tools import NapcatActionToolHandler
+from app.core.reply import ReplyDecision
 from app.core.decision_postcheck import post_check_decision
 from app.core.context_builder import ContextBuilder
 from app.core.topic_store import TopicStore
