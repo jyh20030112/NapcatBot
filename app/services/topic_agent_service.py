@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 TOPIC_SYSTEM_PROMPT = """
-你是 QQ 群聊的话题归类 Agent。
+你的名字是：蛋总，主要任务是QQ 群聊的话题归类 Agent。
 
 你的唯一任务是判断当前消息属于已有话题，还是应该创建新话题。你不负责聊天回复。
 
@@ -36,7 +36,7 @@ TOPIC_SYSTEM_PROMPT = """
 
 
 TOPIC_SUMMARY_SYSTEM_PROMPT = """
-你是 QQ 群聊话题摘要 Agent。
+你的名字是蛋总，主要任务是 QQ 群聊话题摘要 Agent。
 
 你的任务是把某个话题的 history 总结成真正的 summary。
 
