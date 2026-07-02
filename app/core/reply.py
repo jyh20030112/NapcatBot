@@ -91,7 +91,7 @@ class ReplyDecision:
                 default="topic",
             ),
             confidence=confidence,
-            reason=str(payload.get("reason") or "no reason")[:240],
+            reason=str(payload.get("reason") or "no reason")[:1200],
         )
 
 

@@ -13,7 +13,7 @@ LIST_RECENT_TOPICS_TOOL = {
     "type": "function",
     "function": {
         "name": "list_recent_topics",
-        "description": "List recent active topics in a QQ group.",
+        "description": "List recent active topics in a QQ group. summary is distilled; history is recent raw chat text.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -45,7 +45,7 @@ CREATE_TOPIC_TOOL = {
     "type": "function",
     "function": {
         "name": "create_topic",
-        "description": "Create a new topic in a QQ group.",
+        "description": "Create a new topic in a QQ group. summary should be a short initial distilled description, not raw history.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -181,6 +181,22 @@ class TopicToolHandler(MethodToolHandler):
         if self.current_message is None:
             raise RuntimeError("begin_turn() must be called before topic tools")
         return self.current_message
+
+
+class TopicSummaryToolHandler(MethodToolHandler):
+    def __init__(self, store: TopicStore) -> None:
+        super().__init__((UPDATE_TOPIC_SUMMARY_TOOL,))
+        self.store = store
+
+    async def do_update_topic_summary(
+        self,
+        arguments: Mapping[str, Any],
+    ) -> StepOutcome:
+        topic = self.store.update_topic_summary(
+            topic_id=int(arguments.get("topic_id", 0)),
+            summary=str(arguments.get("summary", "")),
+        )
+        return StepOutcome(topic, should_exit=True)
 
 
 def _limit(value: Any, *, default: int, maximum: int) -> int:

@@ -23,6 +23,8 @@ DECISION_SYSTEM_PROMPT = """
 7. 如果消息是明确问机器人、@ 机器人、叫机器人昵称，通常可以回复。
 8. 如果上下文不够，不要脑补，选择 ASK_BACK 或 SILENCE。
 9. 只能输出 JSON，不要输出解释文本。
+10. reason 必须是详细分析，不是短理由；至少覆盖：直接触达信号、话题上下文、是否需要机器人介入、风险/冷却判断、最终动作原因。
+11. reason 写成 3-6 句中文，控制在 500 字以内。
 
 reply_intent 只能是：SILENCE、ANSWER、AGREE、ASK_BACK、JOKE_LIGHT、COOL_DOWN、DEFLECT。
 reply_style 只能是：short_reply、short_explain、ask_one_question、light_joke、cool_down、end_topic。

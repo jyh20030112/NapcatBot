@@ -23,7 +23,7 @@ class TopicStore:
         with self._connect() as conn:
             rows = conn.execute(
                 """
-                select id, group_id, topic_no, title, summary, status, created_at, updated_at
+                select id, group_id, topic_no, title, summary, history, status, created_at, updated_at
                 from topics
                 where group_id = ? and status = 'active'
                 order by updated_at desc
@@ -37,7 +37,7 @@ class TopicStore:
         with self._connect() as conn:
             row = conn.execute(
                 """
-                select id, group_id, topic_no, title, summary, status, created_at, updated_at
+                select id, group_id, topic_no, title, summary, history, status, created_at, updated_at
                 from topics
                 where id = ?
                 """,
@@ -54,7 +54,7 @@ class TopicStore:
         with self._connect() as conn:
             row = conn.execute(
                 """
-                select t.id, t.group_id, t.topic_no, t.title, t.summary, t.status,
+                select t.id, t.group_id, t.topic_no, t.title, t.summary, t.history, t.status,
                        t.created_at, t.updated_at
                 from messages m
                 join topics t on t.id = m.topic_id
@@ -97,8 +97,8 @@ class TopicStore:
             next_no = self._next_topic_no(conn, group_id)
             cursor = conn.execute(
                 """
-                insert into topics(group_id, topic_no, title, summary, status, created_at, updated_at)
-                values(?, ?, ?, ?, 'active', ?, ?)
+                insert into topics(group_id, topic_no, title, summary, history, status, created_at, updated_at)
+                values(?, ?, ?, ?, '', 'active', ?, ?)
                 """,
                 (str(group_id), next_no, title, summary, now, now),
             )
@@ -138,21 +138,20 @@ class TopicStore:
                     now,
                 ),
             )
-            summary = self._recent_summary(conn, topic_id)
+            history = self._recent_history(conn, topic_id)
             conn.execute(
-                "update topics set summary = ?, updated_at = ? where id = ?",
-                (summary, now, topic_id),
+                "update topics set history = ?, updated_at = ? where id = ?",
+                (history, now, topic_id),
             )
         topic = self.get_topic(topic_id)
         assert topic is not None
         return topic
 
     def update_topic_summary(self, *, topic_id: int, summary: str) -> dict[str, Any]:
-        now = _now()
         with self._connect() as conn:
             conn.execute(
-                "update topics set summary = ?, updated_at = ? where id = ?",
-                (summary.strip()[:500], now, topic_id),
+                "update topics set summary = ? where id = ?",
+                (summary.strip()[:500], topic_id),
             )
         topic = self.get_topic(topic_id)
         if topic is None:
@@ -175,6 +174,7 @@ class TopicStore:
                     topic_no text not null,
                     title text not null,
                     summary text not null,
+                    history text not null default '',
                     status text not null default 'active',
                     created_at integer not null,
                     updated_at integer not null,
@@ -199,6 +199,7 @@ class TopicStore:
                     on messages(topic_id, created_at);
                 """
             )
+            _ensure_column(conn, "topics", "history", "text not null default ''")
 
     def _next_topic_no(self, conn: sqlite3.Connection, group_id: int) -> str:
         count = conn.execute(
@@ -207,7 +208,7 @@ class TopicStore:
         ).fetchone()[0]
         return f"topic_{int(count) + 1}"
 
-    def _recent_summary(self, conn: sqlite3.Connection, topic_id: int) -> str:
+    def _recent_history(self, conn: sqlite3.Connection, topic_id: int) -> str:
         rows = conn.execute(
             """
             select text from messages
@@ -218,7 +219,19 @@ class TopicStore:
             (topic_id,),
         ).fetchall()
         texts = [str(row["text"]) for row in reversed(rows) if row["text"]]
-        return " / ".join(texts)[:500] or "新话题"
+        return " / ".join(texts)[:2000] or ""
+
+
+def _ensure_column(
+    conn: sqlite3.Connection,
+    table: str,
+    column: str,
+    definition: str,
+) -> None:
+    rows = conn.execute(f"pragma table_info({table})").fetchall()
+    if any(str(row["name"]) == column for row in rows):
+        return
+    conn.execute(f"alter table {table} add column {column} {definition}")
 
 
 def _row_dict(row: sqlite3.Row) -> dict[str, Any]:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 from pathlib import Path
@@ -12,7 +13,7 @@ from app.core.json_logging import log_json
 from app.core.message import BotMessage
 from app.core.reply import detect_risk
 from app.core.topic_store import TopicStore
-from app.llms_tools.napcat_topic_tools import TopicToolHandler
+from app.llms_tools.napcat_topic_tools import TopicSummaryToolHandler, TopicToolHandler
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +31,21 @@ TOPIC_SYSTEM_PROMPT = """
 5. 如果当前消息开启了新话题，先调用 create_topic，再调用 assign_message_to_topic。
 6. assign_message_to_topic 是最终动作，完成后不要再输出普通文本。
 7. 不要把无关消息硬归到唯一活跃话题；不确定时创建新话题。
+8. topics.summary 是摘要，topics.history 是最近原始聊天记录；归类时 history 比 summary 更适合判断话题延续。
+""".strip()
+
+
+TOPIC_SUMMARY_SYSTEM_PROMPT = """
+你是 QQ 群聊话题摘要 Agent。
+
+你的任务是把某个话题的 history 总结成真正的 summary。
+
+规则：
+1. 必须调用 update_topic_summary 工具写回摘要。
+2. 摘要是概括，不是聊天记录拼接。
+3. 摘要应包含话题核心、当前进展或未解决点。
+4. 摘要控制在 80 字以内。
+5. 不要输出普通文本。
 """.strip()
 
 
@@ -44,15 +60,27 @@ class TopicAgentService:
     ) -> None:
         self.context_builder = context_builder
         self.store = store or TopicStore(_topic_db_path())
+        resolved_config = config or ModelConfig.from_env()
         self.tool_handler = TopicToolHandler(self.store)
+        self.summary_tool_handler = TopicSummaryToolHandler(self.store)
         self.agent = BaseAgent(
-            config=config or ModelConfig.from_env(),
+            config=resolved_config,
             agent_id="napcat_topic_classifier",
             system_prompt=TOPIC_SYSTEM_PROMPT,
             handlers=[self.tool_handler],
             enable_tools=True,
             max_steps=max_steps,
         )
+        self.summary_agent = BaseAgent(
+            config=resolved_config,
+            agent_id="napcat_topic_summarizer",
+            system_prompt=TOPIC_SUMMARY_SYSTEM_PROMPT,
+            handlers=[self.summary_tool_handler],
+            enable_tools=True,
+            max_steps=3,
+        )
+        self._summary_lock = asyncio.Lock()
+        self._summary_tasks: dict[int, asyncio.Task[None]] = {}
 
     async def assign_topic(
         self,
@@ -80,6 +108,7 @@ class TopicAgentService:
                     topic_no=assigned["topic_no"],
                     action="assign_by_reply",
                 )
+                self._schedule_summary_refresh(int(assigned["id"]))
                 return _sync_topic_state(assigned, message, state)
 
         self.tool_handler.begin_turn(message)
@@ -111,6 +140,7 @@ class TopicAgentService:
             topic_no=topic["topic_no"],
             action="assign_by_agent",
         )
+        self._schedule_summary_refresh(int(topic["id"]))
         return _sync_topic_state(topic, message, state)
 
     def _fallback_create_topic(
@@ -138,9 +168,76 @@ class TopicAgentService:
             topic_no=topic["topic_no"],
             action="fallback_create_topic",
         )
+        self._schedule_summary_refresh(int(topic["id"]))
         return _sync_topic_state(topic, message, state)
 
+    def _schedule_summary_refresh(self, topic_id: int) -> None:
+        task = self._summary_tasks.get(topic_id)
+        if task is not None and not task.done():
+            return
+
+        task = asyncio.create_task(self._refresh_topic_summary(topic_id))
+        self._summary_tasks[topic_id] = task
+        task.add_done_callback(lambda done: self._summary_task_done(topic_id, done))
+
+    def _summary_task_done(
+        self,
+        topic_id: int,
+        task: asyncio.Task[None],
+    ) -> None:
+        self._summary_tasks.pop(topic_id, None)
+        if task.cancelled():
+            return
+        error = task.exception()
+        if error is None:
+            return
+        log_json(
+            logger,
+            logging.WARNING,
+            "topic_summary_failed",
+            topic_id=topic_id,
+            error=str(error),
+        )
+
+    async def _refresh_topic_summary(self, topic_id: int) -> None:
+        await asyncio.sleep(0)
+        topic = self.store.get_topic(topic_id)
+        if topic is None:
+            return
+        history = str(topic.get("history") or "").strip()
+        if not history:
+            return
+
+        task = self.context_builder.build_topic_summary_task(
+            topic_id=int(topic["id"]),
+            topic_no=str(topic["topic_no"]),
+            title=str(topic["title"]),
+            current_summary=str(topic["summary"]),
+            history=history,
+        )
+        async with self._summary_lock:
+            await self.summary_agent.runtime(task=task)
+        updated = self.store.get_topic(topic_id)
+        if updated is None:
+            return
+        log_json(
+            logger,
+            logging.DEBUG,
+            "topic_summary_updated",
+            topic_id=updated["id"],
+            topic_no=updated["topic_no"],
+            summary=str(updated["summary"]),
+        )
+
     async def shutdown(self) -> None:
+        for task in list(self._summary_tasks.values()):
+            task.cancel()
+        if self._summary_tasks:
+            await asyncio.gather(
+                *self._summary_tasks.values(),
+                return_exceptions=True,
+            )
+        await self.summary_agent.shutdown()
         await self.agent.shutdown()
 
 
@@ -157,18 +254,19 @@ def _sync_topic_state(
             topic_id=topic_id,
             title=str(topic_row["title"]),
             summary=str(topic_row["summary"]),
+            history=str(topic_row.get("history") or ""),
             last_active_at=float(topic_row["updated_at"]),  # ty:ignore[invalid-argument-type]
         )
         state.topics[topic_id] = topic
     else:
         topic.title = str(topic_row["title"])
         topic.summary = str(topic_row["summary"])
+        topic.history = str(topic_row.get("history") or "")
         topic.last_active_at = float(topic_row["updated_at"])  # ty:ignore[invalid-argument-type]
 
     state.record_topic_message(topic, message)
     recent_text = " / ".join(item.text for item in topic.last_messages[-20:])
-    topic.summary = recent_text[:] or topic.summary
-    topic.risk_level = detect_risk(recent_text)
+    topic.risk_level = detect_risk(topic.history or recent_text)
     return topic
 
 

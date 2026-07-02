@@ -1,3 +1,4 @@
+import asyncio
 import sys
 import tempfile
 import unittest
@@ -27,6 +28,7 @@ DUMMY_CONFIG = ModelConfig(
 
 class FakeTopicRuntime:
     def __init__(self, *args, handlers=None, **kwargs) -> None:
+        self.agent_id = kwargs.get("agent_id")
         self.handler = tuple(handlers or [])[0]
         self.runtime_tasks: list[str] = []
 
@@ -35,6 +37,13 @@ class FakeTopicRuntime:
 
     async def runtime(self, *, task: str) -> str:
         self.runtime_tasks.append(task)
+        if self.agent_id == "napcat_topic_summarizer":
+            await self.handler.dispatch(
+                "update_topic_summary",
+                {"topic_id": 1, "summary": "用户询问项目是否已经启动成功"},
+            )
+            return "summarized"
+
         message = self.handler.current_message
         assert message is not None
 
@@ -95,6 +104,76 @@ class TopicAgentServiceTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(topic.title, "项目启动状态")
             self.assertEqual(state.message_topic_map["m1"], "topic_1")
             self.assertEqual(store.get_topic_messages(1, limit=5)[0]["text"], "蛋总 是否启动成功")
+            stored = store.get_topic(1)
+            assert stored is not None
+            self.assertEqual(stored["history"], "蛋总 是否启动成功")
+
+    async def test_topic_summary_refresh_runs_in_background(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = TopicStore(Path(temp_dir) / "topics.sqlite3")
+            message = normalize_group_message(
+                {
+                    "post_type": "message",
+                    "message_type": "group",
+                    "group_id": 100,
+                    "user_id": 200,
+                    "message_id": "m1",
+                    "sender": {"nickname": "A"},
+                    "message": "蛋总 是否启动成功",
+                },
+                bot_id=123,
+                bot_name="蛋总",
+            )
+            assert message is not None
+            state = GroupState(group_id=100)
+
+            with patch("app.services.topic_agent_service.BaseAgent", FakeTopicRuntime):
+                service = TopicAgentService(
+                    context_builder=ContextBuilder(bot_name="蛋总"),
+                    store=store,
+                    config=DUMMY_CONFIG,
+                )
+                await service.assign_topic(message, state)
+                for _ in range(5):
+                    await asyncio.sleep(0)
+                await service.shutdown()
+
+            stored = store.get_topic(1)
+            assert stored is not None
+            self.assertEqual(stored["history"], "蛋总 是否启动成功")
+            self.assertEqual(stored["summary"], "用户询问项目是否已经启动成功")
+
+
+    def test_topic_store_keeps_history_separate_from_summary(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = TopicStore(Path(temp_dir) / "topics.sqlite3")
+            message = normalize_group_message(
+                {
+                    "post_type": "message",
+                    "message_type": "group",
+                    "group_id": 100,
+                    "user_id": 200,
+                    "message_id": "m1",
+                    "sender": {"nickname": "A"},
+                    "message": "NapCat websocket 怎么接",
+                },
+                bot_id=123,
+                bot_name="蛋总",
+            )
+            assert message is not None
+            topic = store.create_topic(
+                group_id=100,
+                title="NapCat WebSocket",
+                summary="讨论 NapCat WebSocket 接入方案",
+            )
+            assigned = store.assign_message_to_topic(
+                group_id=100,
+                message=message,
+                topic_id=int(topic["id"]),
+            )
+
+            self.assertEqual(assigned["summary"], "讨论 NapCat WebSocket 接入方案")
+            self.assertEqual(assigned["history"], "NapCat websocket 怎么接")
 
     async def test_topic_agent_assigns_reply_to_existing_topic_without_llm(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

@@ -11,6 +11,7 @@ class TopicState:
     topic_id: str
     title: str
     summary: str
+    history: str = ""
     participants: set[int] = field(default_factory=set)
     last_messages: list[BotMessage] = field(default_factory=list)
     last_active_at: float = 0

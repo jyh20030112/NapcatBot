@@ -40,7 +40,13 @@ class FakeDecisionRuntime:
             "risk_level": "normal",
             "reply_target": "current_user",
             "confidence": 0.9,
-            "reason": "用户明确提及机器人昵称询问项目启动状态",
+            "reason": (
+                "当前消息直接提到机器人昵称，属于明确向机器人询问。"
+                "消息内容是在确认项目启动状态，和当前话题标题及摘要一致。"
+                "上下文没有争吵、敏感或引战风险，机器人也没有在该话题中过度重复回复。"
+                "因此应该回复当前用户，意图选择 ANSWER，风格使用 short_explain。"
+                "这段额外分析用于确认长 reason 不会被过早截断。" * 20
+            ),
         }
 
     async def shutdown(self) -> None:
@@ -85,6 +91,8 @@ class DecisionAgentServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(decision.should_reply)
         self.assertEqual(decision.reply_intent, "ANSWER")
         self.assertEqual(decision.reply_target, "current_user")
+        self.assertGreater(len(decision.reason), 240)
+        self.assertLessEqual(len(decision.reason), 1200)
         runtime = FakeDecisionRuntime.instances[0]
         assert runtime.messages is not None
         user_task = runtime.messages[-1]["content"]

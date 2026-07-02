@@ -39,6 +39,7 @@ def configure_json_logging(*, level: int = logging.INFO) -> None:
         "websockets",
         "websockets.server",
         "napcat_topic_classifier",
+        "napcat_topic_summarizer",
         "napcat_group_agent",
     ):
         logging.getLogger(logger_name).setLevel(logging.WARNING)

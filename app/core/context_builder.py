@@ -25,9 +25,39 @@ class ContextBuilder:
 
 必须按顺序使用工具：
 1. list_recent_topics(group_id={message.group_id}, limit=10)
-2. 必要时 get_topic_messages(topic_id, limit=5)
-3. 如果属于已有话题，调用 assign_message_to_topic(group_id, message_id, topic_id, msg)
-4. 如果是新话题，调用 create_topic 后再调用 assign_message_to_topic
+2. list_recent_topics 返回的 summary 是话题摘要，history 是最近原始聊天记录；归类时优先用 history 判断话题延续
+3. 必要时 get_topic_messages(topic_id, limit=5)
+4. 如果属于已有话题，调用 assign_message_to_topic(group_id, message_id, topic_id, msg)
+5. 如果是新话题，调用 create_topic 后再调用 assign_message_to_topic
+""".strip()
+
+
+    def build_topic_summary_task(
+        self,
+        *,
+        topic_id: int,
+        topic_no: str,
+        title: str,
+        current_summary: str,
+        history: str,
+    ) -> str:
+        return f"""
+请根据 QQ 群话题历史生成一个真正的话题摘要，并调用工具 update_topic_summary 写回。
+
+要求：
+1. 摘要必须概括话题在讨论什么、当前结论或待解决点。
+2. 不要逐条拼接聊天记录。
+3. 控制在 80 字以内。
+4. 只调用 update_topic_summary(topic_id={topic_id}, summary=...)，不要输出普通文本。
+
+【话题】
+topic_id: {topic_id}
+topic_no: {topic_no}
+标题: {title}
+当前摘要: {current_summary or "无"}
+
+【历史聊天】
+{history or "无"}
 """.strip()
 
     def build_decision_task(
@@ -63,7 +93,6 @@ topic_id: {topic.topic_id}
 标题: {topic.title}
 摘要: {topic.summary}
 风险: {topic.risk_level}
-机器人在该话题已回复次数: {topic.bot_replied_count}
 
 【该话题最近消息】
 {topic_messages or "无"}
@@ -82,7 +111,14 @@ topic_id: {topic.topic_id}
 是否提到机器人昵称: {message.mentions_bot_name}
 是否回复某条消息: {bool(message.reply_to)}
 
-请只输出 JSON：
+请只输出 JSON。reason 必须给出详细分析，至少包含：
+- 当前消息是否直接触达机器人，以及依据是什么
+- 当前消息和话题上下文的关系
+- 为什么需要回复或为什么应该静默
+- 风险、冷却、重复回复等约束是否影响决策
+- 最终选择该 reply_intent/reply_style/reply_target 的原因
+
+输出格式：
 {{
   "should_reply": true,
   "topic_id": "{topic.topic_id}",
@@ -91,7 +127,7 @@ topic_id: {topic.topic_id}
   "risk_level": "normal",
   "reply_target": "current_user",
   "confidence": 0.88,
-  "reason": "用户在追问当前技术方案"
+  "reason": "当前消息直接提到机器人昵称，属于明确向机器人询问。消息内容在追问当前话题的技术状态，和话题摘要及最近消息一致，不是无关插话。上下文没有争吵、敏感或引战风险，机器人也没有在该话题中过度重复回复，因此可以介入。用户是在问一个明确问题，最合适的意图是 ANSWER，回复对象是当前用户，风格应保持简短解释。"
 }}
 """.strip()
 
@@ -129,7 +165,6 @@ topic_id: {topic.topic_id}
 标题: {topic.title}
 摘要: {topic.summary}
 风险: {topic.risk_level}
-机器人在该话题已回复次数: {topic.bot_replied_count}
 
 【ReplyDecision】
 should_reply: {decision.should_reply}

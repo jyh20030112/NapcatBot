@@ -124,7 +124,7 @@ class GroupMessageHandler:
             target=decision.reply_target,
             risk=decision.risk_level,
             confidence=round(decision.confidence, 2),
-            reason=_preview(decision.reason),
+            reason=_preview(decision.reason, limit=800),
         )
         checked_decision = post_check_decision(
             decision,
@@ -149,7 +149,7 @@ class GroupMessageHandler:
                     "should_reply": checked_decision.should_reply,
                     "intent": checked_decision.reply_intent,
                     "confidence": round(checked_decision.confidence, 2),
-                    "reason": _preview(checked_decision.reason),
+                    "reason": _preview(checked_decision.reason, limit=800),
                 },
             )
         decision = checked_decision
@@ -167,7 +167,7 @@ class GroupMessageHandler:
                 target=decision.reply_target,
                 risk=decision.risk_level,
                 confidence=round(decision.confidence, 2),
-                reason=_preview(decision.reason),
+                reason=_preview(decision.reason, limit=800),
             )
 
         task = self.context_builder.build_action_task(
