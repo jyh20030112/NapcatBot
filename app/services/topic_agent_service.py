@@ -98,16 +98,6 @@ class TopicAgentService:
                     message=message,
                     topic_id=int(topic["id"]),
                 )
-                log_json(
-                    logger,
-                    logging.DEBUG,
-                    "topic_classified",
-                    group_id=message.group_id,
-                    message_id=message.message_id,
-                    topic_id=assigned["id"],
-                    topic_no=assigned["topic_no"],
-                    action="assign_by_reply",
-                )
                 self._schedule_summary_refresh(int(assigned["id"]))
                 return _sync_topic_state(assigned, message, state)
 
@@ -130,16 +120,6 @@ class TopicAgentService:
         if topic is None:
             return self._fallback_create_topic(message, state)
 
-        log_json(
-            logger,
-            logging.DEBUG,
-            "topic_classified",
-            group_id=message.group_id,
-            message_id=message.message_id,
-            topic_id=topic["id"],
-            topic_no=topic["topic_no"],
-            action="assign_by_agent",
-        )
         self._schedule_summary_refresh(int(topic["id"]))
         return _sync_topic_state(topic, message, state)
 
@@ -217,17 +197,6 @@ class TopicAgentService:
         )
         async with self._summary_lock:
             await self.summary_agent.runtime(task=task)
-        updated = self.store.get_topic(topic_id)
-        if updated is None:
-            return
-        log_json(
-            logger,
-            logging.DEBUG,
-            "topic_summary_updated",
-            topic_id=updated["id"],
-            topic_no=updated["topic_no"],
-            summary=str(updated["summary"]),
-        )
 
     async def shutdown(self) -> None:
         for task in list(self._summary_tasks.values()):

@@ -150,6 +150,10 @@ class NapcatWebSocketAdapter:
             )
             return None
         if "post_type" not in payload:
+            # NapCat action responses (with "echo") arrive over the same WebSocket;
+            # silently skip them instead of warning.
+            if "echo" in payload:
+                return None
             log_json(
                 logger,
                 logging.WARNING,

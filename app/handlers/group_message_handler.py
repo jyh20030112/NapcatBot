@@ -62,13 +62,6 @@ class GroupMessageHandler:
             )
             return
 
-        print(
-            f"\n========== new group message "
-            f"group={message.group_id} "
-            f"message={message.message_id} "
-            f"user={message.user_id} ==========",
-            flush=True,
-        )
         log_json(
             logger,
             logging.INFO,

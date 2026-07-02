@@ -95,13 +95,6 @@ class NapcatActionToolHandler(MethodToolHandler):
         self,
         arguments: Mapping[str, Any],
     ) -> StepOutcome:
-        log_json(
-            logger,
-            logging.INFO,
-            "qq_action_skip_reply",
-            group_id=self.current_group_id,
-            reason=_preview(str(arguments.get("reason", ""))),
-        )
         return StepOutcome(
             {
                 "status": "skipped",
@@ -128,14 +121,6 @@ class NapcatActionToolHandler(MethodToolHandler):
                 {"status": "error", "error": "message must not be empty"}
             )
 
-        log_json(
-            logger,
-            logging.INFO,
-            "qq_action_send_msg",
-            group_id=group_id,
-            message_len=len(message),
-            message=_preview(message),
-        )
         result = await self.sender.send_action(
             "send_group_msg",
             {
@@ -185,15 +170,6 @@ class NapcatActionToolHandler(MethodToolHandler):
                 {"status": "error", "error": "message must not be empty"}
             )
 
-        log_json(
-            logger,
-            logging.INFO,
-            "qq_action_send_at_msg",
-            group_id=group_id,
-            user_id=user_id,
-            message_len=len(message),
-            message=_preview(message),
-        )
         segments = [
             {"type": "at", "data": {"qq": str(user_id)}},
             {"type": "text", "data": {"text": f" {message}"}},
