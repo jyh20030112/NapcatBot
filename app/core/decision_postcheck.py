@@ -11,7 +11,7 @@ def post_check_decision(
     message: BotMessage,
     topic: TopicState,
     state: GroupState,
-    cooldown_seconds: int = 20,
+    cooldown_seconds: int = 2,
     min_confidence: float = 0.6,
     indirect_confidence: float = 0.8,
 ) -> ReplyDecision:
@@ -54,13 +54,6 @@ def post_check_decision(
         return ReplyDecision.silence(
             topic_id=topic.topic_id,
             reason=f"bot replied within {cooldown_seconds}s",
-            risk_level=decision.risk_level,
-        )
-
-    if not directly_addressed and topic.bot_replied_count:
-        return ReplyDecision.silence(
-            topic_id=topic.topic_id,
-            reason="bot already replied twice in this topic",
             risk_level=decision.risk_level,
         )
 

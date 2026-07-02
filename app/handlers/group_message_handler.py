@@ -163,6 +163,10 @@ class GroupMessageHandler:
                 reason=_preview(decision.reason, limit=800),
             )
 
+        if not decision.should_reply:
+            state.record_decision(decision)
+            return
+
         task = self.context_builder.build_action_task(
             message=message,
             topic=topic,
