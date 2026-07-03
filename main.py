@@ -23,12 +23,20 @@ async def amain() -> None:
         port=settings.napcat_ws_port,
     )
     adapter.set_action_dry_run(settings.hide)
-    agent = NapcatReplyAgent(sender=adapter)
+    agent = NapcatReplyAgent(
+        sender=adapter,
+        bot_name=settings.bot_name,
+        bot_id=settings.bot_id,
+        owner_name=settings.owner_name,
+        owner_id=settings.owner_id,
+    )
     handler = GroupMessageHandler(
         bot_id=settings.bot_id,
         bot_name=settings.bot_name,
         agent=agent,
         hide=settings.hide,
+        owner_name=settings.owner_name,
+        owner_id=settings.owner_id,
     )
     reload_task = asyncio.create_task(
         _watch_env(
@@ -89,12 +97,20 @@ async def _watch_env(
                 )
 
             adapter.set_action_dry_run(new_settings.hide)
-            new_agent = NapcatReplyAgent(sender=adapter)
+            new_agent = NapcatReplyAgent(
+                sender=adapter,
+                bot_name=new_settings.bot_name,
+                bot_id=new_settings.bot_id,
+                owner_name=new_settings.owner_name,
+                owner_id=new_settings.owner_id,
+            )
             await handler.reload_runtime(
                 bot_id=new_settings.bot_id,
                 bot_name=new_settings.bot_name,
                 agent=new_agent,
                 hide=new_settings.hide,
+                owner_name=new_settings.owner_name,
+                owner_id=new_settings.owner_id,
             )
             settings = new_settings
             log_json(

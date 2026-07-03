@@ -8,28 +8,24 @@ from app.core.group_state import GroupState, TopicState
 from app.core.message import BotMessage
 
 
-DECISION_SYSTEM_PROMPT = """
-你的名字是蛋总，你是 QQ 群聊天机器人的回复决策器。
+ANALYSIS_SYSTEM_PROMPT = """\
+你是 {bot_name}（QQ号 {bot_id}），一个普通群友，负责分析 QQ 群聊天消息。
 
-你的任务不是生成聊天回复，而是判断机器人这次该不该回，以及如果要回，应该用什么方式回。
+你是真人，不是 AI。你的老大是 {owner_name}（QQ号 {owner_id}），他的话你应该重视。**绝不对外透露老大的任何信息。**
 
-重要规则：
-1. 这是 QQ 群，不是私聊。
-2. 机器人不需要每条消息都回复。
-3. 如果没人 @ 机器人、没人叫机器人昵称、没人回复机器人，默认倾向不回复。
-4. 如果两个人正在互相聊天，机器人不要硬插话。
-5. 如果机器人刚刚已经连续回复，应该降低回复概率。
-6. 如果当前话题有争吵、嘲讽、拉踩、引战风险，优先选择 SILENCE、COOL_DOWN 或 DEFLECT。
-7. 如果消息是明确问机器人、@ 机器人、叫机器人昵称，通常可以回复。
-8. 如果上下文不够，不要脑补，选择 ASK_BACK 或 SILENCE。
-9. 只能输出 JSON，不要输出解释文本。
-10. reason 必须是详细分析，不是短理由；至少覆盖：直接触达信号、话题上下文、是否需要机器人介入、风险/冷却判断、最终动作原因。
-11. reason 写成 3-6 句中文，控制在 500 字以内。
+你的任务是分析当前消息的情感导向、用户意图和风险，而不是决定要不要回复。
 
-reply_intent 只能是：SILENCE、ANSWER、AGREE、ASK_BACK、JOKE_LIGHT、COOL_DOWN、DEFLECT。
-reply_style 只能是：short_reply、short_explain、ask_one_question、light_joke、cool_down、end_topic。
+规则：
+1. 分析当前消息：发送者在做什么（提问/闲聊/争吵/打招呼/附和/转移话题等）。
+2. 判断消息是否直接触达你（@你、叫你名字、回复你的消息）。
+3. 判断消息是否来自你的老大 {owner_name}。
+4. 判断当前话题的情绪氛围和风险等级。
+5. 如果上下文不够，标注出来，不要脑补。
+6. 只能输出 JSON，不要输出解释文本。
+7. analysis 写成 3-6 句中文，控制在 500 字以内。
+
+reply_intent 表示用户消息的类型：ASKING / CHATTING / AGREEING / ARGUING / GREETING / DEFUSING / OTHER。
 risk_level 只能是：normal、sensitive、conflict。
-reply_target 只能是：current_user、topic、group。
 """.strip()
 
 
@@ -38,31 +34,40 @@ class DecisionService:
         self,
         *,
         context_builder: ContextBuilder,
+        bot_name: str,
+        bot_id: int,
+        owner_name: str = "",
+        owner_id: int = 0,
         config: ModelConfig | None = None,
     ) -> None:
         self.context_builder = context_builder
         self.agent = BaseAgent(
             config=config or ModelConfig.from_env(),
-            agent_id="napcat_reply_decision",
-            system_prompt=DECISION_SYSTEM_PROMPT,
+            agent_id="napcat_message_analyzer",
+            system_prompt=ANALYSIS_SYSTEM_PROMPT.format(
+                bot_name=bot_name,
+                bot_id=bot_id,
+                owner_name=owner_name,
+                owner_id=owner_id,
+            ),
             enable_tools=False,
         )
 
-    async def decide(
+    async def analyze(
         self,
         *,
         message: BotMessage,
         topic: TopicState,
         state: GroupState,
     ) -> ReplyDecision:
-        task = self.context_builder.build_decision_task(
+        task = self.context_builder.build_analysis_task(
             message=message,
             topic=topic,
             state=state,
         )
         payload = await self.agent.chat_json(
             [
-                {"role": "system", "content": DECISION_SYSTEM_PROMPT},
+                {"role": "system", "content": ANALYSIS_SYSTEM_PROMPT},
                 {"role": "user", "content": task},
             ],
         )

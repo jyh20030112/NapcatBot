@@ -5,7 +5,6 @@ import logging
 from typing import Any
 
 from app.core.context_builder import ContextBuilder
-from app.core.decision_postcheck import post_check_decision
 from app.core.group_state import GroupState
 from app.core.json_logging import log_json
 from app.core.message import normalize_group_message
@@ -24,17 +23,29 @@ class GroupMessageHandler:
         bot_name: str,
         agent: NapcatReplyAgent,
         hide: bool = False,
+        owner_name: str = "",
+        owner_id: int = 0,
     ) -> None:
         self.bot_id = bot_id
         self.bot_name = bot_name
         self.agent = agent
         self.hide = hide
+        self.owner_name = owner_name
+        self.owner_id = owner_id
         self.context_builder = ContextBuilder(bot_name=bot_name)
         self.topic_agent = TopicAgentService(
             context_builder=self.context_builder,
+            bot_name=bot_name,
+            bot_id=bot_id,
+            owner_name=owner_name,
+            owner_id=owner_id,
         )
         self.decision_service = DecisionService(
             context_builder=self.context_builder,
+            bot_name=bot_name,
+            bot_id=bot_id,
+            owner_name=owner_name,
+            owner_id=owner_id,
         )
         self.group_states: dict[int, GroupState] = {}
         self._reload_lock = asyncio.Lock()
@@ -99,7 +110,7 @@ class GroupMessageHandler:
             participants=len(topic.participants),
             summary=_preview(topic.summary),
         )
-        decision = await self.decision_service.decide(
+        analysis = await self.decision_service.analyze(
             message=message,
             topic=topic,
             state=state,
@@ -107,45 +118,16 @@ class GroupMessageHandler:
         log_json(
             logger,
             logging.INFO,
-            "decision_raw",
+            "message_analysis",
             group_id=message.group_id,
             message_id=message.message_id,
-            topic_id=decision.topic_id,
-            should_reply=decision.should_reply,
-            intent=decision.reply_intent,
-            style=decision.reply_style,
-            target=decision.reply_target,
-            risk=decision.risk_level,
-            confidence=round(decision.confidence, 2),
-            reason=_preview(decision.reason, limit=800),
+            topic_id=analysis.topic_id,
+            intent=analysis.reply_intent,
+            risk=analysis.risk_level,
+            confidence=round(analysis.confidence, 2),
+            analysis=_preview(analysis.reason, limit=800),
         )
-        checked_decision = post_check_decision(
-            decision,
-            message=message,
-            topic=topic,
-            state=state,
-        )
-        if checked_decision != decision:
-            log_json(
-                logger,
-                logging.INFO,
-                "decision_postcheck_changed",
-                group_id=message.group_id,
-                message_id=message.message_id,
-                topic_id=topic.topic_id,
-                before={
-                    "should_reply": decision.should_reply,
-                    "intent": decision.reply_intent,
-                    "confidence": round(decision.confidence, 2),
-                },
-                after={
-                    "should_reply": checked_decision.should_reply,
-                    "intent": checked_decision.reply_intent,
-                    "confidence": round(checked_decision.confidence, 2),
-                    "reason": _preview(checked_decision.reason, limit=800),
-                },
-            )
-        decision = checked_decision
+
         if self.hide:
             log_json(
                 logger,
@@ -154,31 +136,24 @@ class GroupMessageHandler:
                 group_id=message.group_id,
                 message_id=message.message_id,
                 topic_id=topic.topic_id,
-                should_reply=decision.should_reply,
-                intent=decision.reply_intent,
-                style=decision.reply_style,
-                target=decision.reply_target,
-                risk=decision.risk_level,
-                confidence=round(decision.confidence, 2),
-                reason=_preview(decision.reason, limit=800),
+                intent=analysis.reply_intent,
+                risk=analysis.risk_level,
+                confidence=round(analysis.confidence, 2),
+                analysis=_preview(analysis.reason, limit=800),
             )
-
-        if not decision.should_reply:
-            state.record_decision(decision)
-            return
 
         task = self.context_builder.build_action_task(
             message=message,
             topic=topic,
             state=state,
-            decision=decision,
+            analysis=analysis,
         )
         await self.agent.handle_message(
             task=task,
             message=message,
             topic=topic,
             state=state,
-            decision=decision,
+            analysis=analysis,
         )
 
     async def reload_runtime(
@@ -188,6 +163,8 @@ class GroupMessageHandler:
         bot_name: str,
         agent: NapcatReplyAgent,
         hide: bool = False,
+        owner_name: str = "",
+        owner_id: int = 0,
     ) -> None:
         async with self._reload_lock:
             old_agent = self.agent
@@ -198,12 +175,22 @@ class GroupMessageHandler:
             self.bot_name = bot_name
             self.agent = agent
             self.hide = hide
+            self.owner_name = owner_name
+            self.owner_id = owner_id
             self.context_builder = ContextBuilder(bot_name=bot_name)
             self.topic_agent = TopicAgentService(
                 context_builder=self.context_builder,
+                bot_name=bot_name,
+                bot_id=bot_id,
+                owner_name=owner_name,
+                owner_id=owner_id,
             )
             self.decision_service = DecisionService(
                 context_builder=self.context_builder,
+                bot_name=bot_name,
+                bot_id=bot_id,
+                owner_name=owner_name,
+                owner_id=owner_id,
             )
 
             await old_decision_service.shutdown()

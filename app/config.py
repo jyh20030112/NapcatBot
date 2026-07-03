@@ -12,6 +12,8 @@ class Settings:
     bot_id: int
     bot_name: str = "蛋总"
     hide: bool = False
+    owner_name: str = ""
+    owner_id: int = 0
 
     @classmethod
     def from_env(cls, *, env_path: str | Path = ".env") -> "Settings":
@@ -30,6 +32,8 @@ class Settings:
         bot_id_raw = os.getenv("BOT_ID", "").strip()
         bot_name = os.getenv("BOT_NAME", "蛋总").strip() or "蛋总"
         hide = _env_bool(os.getenv("HIDE"), default=False)
+        owner_name = os.getenv("OWNER_NAME", "").strip()
+        owner_id_raw = os.getenv("OWNER_ID", "0").strip()
 
         try:
             ws_port = int(ws_port_raw)
@@ -41,6 +45,10 @@ class Settings:
             bot_id = int(bot_id_raw)
         except ValueError as exc:
             raise ValueError("BOT_ID must be an integer") from exc
+        try:
+            owner_id = int(owner_id_raw)
+        except ValueError:
+            owner_id = 0
 
         return cls(
             napcat_ws_host=ws_host,
@@ -48,6 +56,8 @@ class Settings:
             bot_id=bot_id,
             bot_name=bot_name,
             hide=hide,
+            owner_name=owner_name,
+            owner_id=owner_id,
         )
 
 

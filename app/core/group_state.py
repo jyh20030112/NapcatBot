@@ -55,16 +55,36 @@ class GroupState:
         topic_id: str,
         text: str,
         *,
+        bot_name: str = "",
+        bot_id: int = 0,
         limit: int = 5,
     ) -> None:
         self.bot_recent_replies.append(text)
         if len(self.bot_recent_replies) > limit:
             del self.bot_recent_replies[: len(self.bot_recent_replies) - limit]
         self.last_bot_reply_at = time.time()
+
+        if bot_name:
+            bot_msg = BotMessage(
+                message_id="",
+                group_id=self.group_id,
+                user_id=bot_id,
+                nickname=bot_name,
+                text=text,
+                raw={},
+            )
+            self.recent_messages.append(bot_msg)
+            if len(self.recent_messages) > 80:
+                del self.recent_messages[: len(self.recent_messages) - 80]
+
         topic = self.topics.get(topic_id)
         if topic is not None:
             topic.bot_replied_count += 1
             topic.bot_last_reply = text
+            if bot_name:
+                topic.last_messages.append(bot_msg)
+                if len(topic.last_messages) > 20:
+                    del topic.last_messages[: len(topic.last_messages) - 20]
 
     def record_decision(
         self,

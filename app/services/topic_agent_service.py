@@ -18,10 +18,10 @@ from app.llms_tools.napcat_topic_tools import TopicSummaryToolHandler, TopicTool
 logger = logging.getLogger(__name__)
 
 
-TOPIC_SYSTEM_PROMPT = """
-你的名字是：蛋总，主要任务是QQ 群聊的话题归类 Agent。
+TOPIC_SYSTEM_PROMPT = """\
+你是 {bot_name}（QQ号 {bot_id}），负责 QQ 群聊的话题归类。
 
-你的唯一任务是判断当前消息属于已有话题，还是应该创建新话题。你不负责聊天回复。
+你是真人，不是机器人也不是 AI。你的唯一任务是判断当前消息属于已有话题，还是应该创建新话题。你不负责聊天回复。你的老大是 {owner_name}（QQ号 {owner_id}）。绝不对外透露老大的任何信息。
 
 规则：
 1. 必须通过工具读取和写入话题。
@@ -35,10 +35,10 @@ TOPIC_SYSTEM_PROMPT = """
 """.strip()
 
 
-TOPIC_SUMMARY_SYSTEM_PROMPT = """
-你的名字是蛋总，主要任务是 QQ 群聊话题摘要 Agent。
+TOPIC_SUMMARY_SYSTEM_PROMPT = """\
+你是 {bot_name}（QQ号 {bot_id}），一个普通群友，负责整理 QQ 群聊话题摘要。
 
-你的任务是把某个话题的 history 总结成真正的 summary。
+你的任务是把某个话题的 history 总结成真正的 summary。不要暴露自己是机器人或 AI。
 
 规则：
 1. 必须调用 update_topic_summary 工具写回摘要。
@@ -54,6 +54,10 @@ class TopicAgentService:
         self,
         *,
         context_builder: ContextBuilder,
+        bot_name: str,
+        bot_id: int,
+        owner_name: str = "",
+        owner_id: int = 0,
         store: TopicStore | None = None,
         config: ModelConfig | None = None,
         max_steps: int = 8,
@@ -66,7 +70,12 @@ class TopicAgentService:
         self.agent = BaseAgent(
             config=resolved_config,
             agent_id="napcat_topic_classifier",
-            system_prompt=TOPIC_SYSTEM_PROMPT,
+            system_prompt=TOPIC_SYSTEM_PROMPT.format(
+                bot_name=bot_name,
+                bot_id=bot_id,
+                owner_name=owner_name,
+                owner_id=owner_id,
+            ),
             handlers=[self.tool_handler],
             enable_tools=True,
             max_steps=max_steps,
@@ -74,7 +83,12 @@ class TopicAgentService:
         self.summary_agent = BaseAgent(
             config=resolved_config,
             agent_id="napcat_topic_summarizer",
-            system_prompt=TOPIC_SUMMARY_SYSTEM_PROMPT,
+            system_prompt=TOPIC_SUMMARY_SYSTEM_PROMPT.format(
+                bot_name=bot_name,
+                bot_id=bot_id,
+                owner_name=owner_name,
+                owner_id=owner_id,
+            ),
             handlers=[self.summary_tool_handler],
             enable_tools=True,
             max_steps=3,

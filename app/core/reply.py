@@ -28,14 +28,14 @@ ReplyTarget = Literal["current_user", "topic", "group"]
 
 @dataclass(slots=True)
 class ReplyDecision:
-    should_reply: bool
-    topic_id: str
-    reply_intent: ReplyIntent
-    reply_style: ReplyStyle
-    risk_level: RiskLevel
-    reply_target: ReplyTarget
-    confidence: float
-    reason: str
+    should_reply: bool = True
+    topic_id: str = ""
+    reply_intent: ReplyIntent = "SILENCE"
+    reply_style: ReplyStyle = "short_reply"
+    risk_level: RiskLevel = "normal"
+    reply_target: ReplyTarget = "topic"
+    confidence: float = 1.0
+    reason: str = ""
 
     @classmethod
     def silence(
@@ -63,18 +63,13 @@ class ReplyDecision:
         *,
         fallback_topic_id: str,
     ) -> "ReplyDecision":
-        intent = _literal_value(
-            payload.get("reply_intent"),
-            ReplyIntent,
-            default="SILENCE",
-        )
-        should_reply = intent != "SILENCE"
-
-        confidence = _float_between(payload.get("confidence"), 0.0, 1.0)
         return cls(
-            should_reply=should_reply,
             topic_id=str(payload.get("topic_id") or fallback_topic_id),
-            reply_intent=intent,
+            reply_intent=_literal_value(
+                payload.get("reply_intent"),
+                ReplyIntent,
+                default="SILENCE",
+            ),
             reply_style=_literal_value(
                 payload.get("reply_style"),
                 ReplyStyle,
@@ -90,8 +85,8 @@ class ReplyDecision:
                 ReplyTarget,
                 default="topic",
             ),
-            confidence=confidence,
-            reason=str(payload.get("reason") or "no reason")[:1200],
+            confidence=_float_between(payload.get("confidence"), 0.0, 1.0),
+            reason=str(payload.get("reason") or payload.get("analysis") or "no reason")[:1200],
         )
 
 

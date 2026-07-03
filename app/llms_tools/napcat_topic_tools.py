@@ -118,7 +118,12 @@ class TopicToolHandler(MethodToolHandler):
     ) -> StepOutcome:
         group_id = int(arguments.get("group_id", 0))
         limit = _limit(arguments.get("limit"), default=10, maximum=20)
-        return StepOutcome(self.store.list_recent_topics(group_id, limit=limit))
+        topics = self.store.list_recent_topics(group_id, limit=limit)
+        for topic in topics:
+            history = str(topic.get("history") or "")
+            if len(history) > 500:
+                topic["history"] = history[-500:]
+        return StepOutcome(topics)
 
     async def do_get_topic_messages(
         self,

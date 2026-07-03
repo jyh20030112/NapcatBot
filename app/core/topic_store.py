@@ -19,8 +19,15 @@ class TopicStore:
         group_id: int,
         *,
         limit: int = 10,
+        ttl_seconds: int = 600,
     ) -> list[dict[str, Any]]:
         with self._connect() as conn:
+            cutoff = _now() - ttl_seconds
+            conn.execute(
+                "update topics set status = 'inactive' "
+                "where group_id = ? and status = 'active' and updated_at < ?",
+                (str(group_id), cutoff),
+            )
             rows = conn.execute(
                 """
                 select id, group_id, topic_no, title, summary, history, status, created_at, updated_at
@@ -137,6 +144,13 @@ class TopicStore:
                     topic_id,
                     now,
                 ),
+            )
+            conn.execute(
+                "delete from messages where group_id = ? and id not in ("
+                "  select id from messages where group_id = ? "
+                "  order by created_at desc limit 100"
+                ")",
+                (str(group_id), str(group_id)),
             )
             history = self._recent_history(conn, topic_id)
             conn.execute(
