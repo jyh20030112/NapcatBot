@@ -42,6 +42,40 @@ class TopicStore:
             ).fetchall()
         return [_row_dict(row) for row in rows]
 
+    def list_all_topics(self, group_id: int, *, limit: int = 50) -> list[dict[str, Any]]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                select id, topic_no, title, summary, status, updated_at
+                from topics
+                where group_id = ?
+                order by updated_at desc
+                limit ?
+                """,
+                (str(group_id), limit),
+            ).fetchall()
+        return [_row_dict(row) for row in rows]
+
+    def delete_inactive_topics(self, group_id: int) -> int:
+        with self._connect() as conn:
+            cursor = conn.execute(
+                "delete from topics where group_id = ? and status = 'inactive'",
+                (str(group_id),),
+            )
+            return cursor.rowcount
+
+    def get_topic_by_no(self, group_id: int, topic_no: str) -> dict[str, Any] | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                select id, group_id, topic_no, title, summary, history, status, created_at, updated_at
+                from topics
+                where group_id = ? and topic_no = ?
+                """,
+                (str(group_id), topic_no),
+            ).fetchone()
+        return _row_dict(row) if row is not None else None
+
     def get_topic(self, topic_id: int) -> dict[str, Any] | None:
         with self._connect() as conn:
             row = conn.execute(
@@ -89,6 +123,10 @@ class TopicStore:
         now = _now()
         msg_text = (text if text is not None else message.text).strip()
         with self._connect() as conn:
+            conn.execute(
+                "update topics set status = 'active', updated_at = ? where id = ?",
+                (now, topic_id),
+            )
             row = conn.execute(
                 "select history from topics where id = ?",
                 (topic_id,),
@@ -117,6 +155,36 @@ class TopicStore:
             raise ValueError(f"topic {topic_id} does not exist")
         return topic
 
+    # -- group profile ---------------------------------------------------------
+
+    def get_group_profile(self, group_id: int) -> dict[str, Any] | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "select group_id, profile, updated_at from group_profiles where group_id = ?",
+                (str(group_id),),
+            ).fetchone()
+        return _row_dict(row) if row is not None else None
+
+    def upsert_group_profile(self, group_id: int, profile: str) -> None:
+        now = _now()
+        with self._connect() as conn:
+            conn.execute(
+                """
+                insert into group_profiles(group_id, profile, updated_at)
+                values(?, ?, ?)
+                on conflict(group_id) do update set
+                    profile = excluded.profile,
+                    updated_at = excluded.updated_at
+                """,
+                (str(group_id), profile.strip()[:800], now),
+            )
+
+    def group_profile_stale(self, group_id: int, *, ttl_seconds: int = 86400) -> bool:
+        profile = self.get_group_profile(group_id)
+        if profile is None:
+            return True
+        return _now() - int(profile["updated_at"]) > ttl_seconds
+
     # -- internal -------------------------------------------------------------
 
     def _connect(self) -> sqlite3.Connection:
@@ -141,6 +209,12 @@ class TopicStore:
                     updated_at integer not null,
                     unique(group_id, topic_no)
                 );
+
+                create table if not exists group_profiles (
+                    group_id text primary key,
+                    profile text not null default '',
+                    updated_at integer not null
+                );
                 """
             )
             conn.execute(
@@ -149,11 +223,13 @@ class TopicStore:
             )
 
     def _next_topic_no(self, conn: sqlite3.Connection, group_id: int) -> str:
-        count = conn.execute(
-            "select count(*) from topics where group_id = ?",
+        row = conn.execute(
+            "select max(cast(replace(topic_no, 'topic_', '') as integer)) "
+            "from topics where group_id = ?",
             (str(group_id),),
-        ).fetchone()[0]
-        return f"topic_{int(count) + 1}"
+        ).fetchone()
+        max_no = row[0] if row and row[0] is not None else 0
+        return f"topic_{int(max_no) + 1}"
 
 
 def _row_dict(row: sqlite3.Row) -> dict[str, Any]:

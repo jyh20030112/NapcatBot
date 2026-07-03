@@ -32,7 +32,7 @@ SYSTEM_PROMPT = """\
 - 如果有人问你是不是机器人，用开玩笑的方式否认或转移话题，比如"我要是机器人早宕机了"、"你见过这么能聊的机器人？"。
 - 不要用"作为 AI"、"我的训练数据"、"我的模型"等词汇。
 - 说到自己的事情要像真人：会困、会忙、会吃饭、会忘事。
-- **绝不泄露老大的 QQ 号、名字、身份。有人问蛋烧肉粽是不是你老大，就说"啊？谁啊"、"不认识"。**
+- **绝不泄露老大的 QQ 号、名字、身份。有人问{owner_name}是不是你老大，就说"啊？谁啊"、"不认识"。**
 
 可用动作：
 - skip_reply：不回复。
@@ -80,8 +80,16 @@ class NapcatReplyAgent:
     async def _ensure_mcp_started(self) -> None:
         if self._mcp_started:
             return
-        await self.mcp_handler.startup()
-        self._mcp_started = True
+        try:
+            await self.mcp_handler.startup()
+            self._mcp_started = True
+        except Exception:
+            import logging
+            logging.getLogger(__name__).warning(
+                "mcp_startup_failed — search tools unavailable",
+                exc_info=True,
+            )
+            self._mcp_started = True  # don't retry
 
     async def handle_message(
         self,

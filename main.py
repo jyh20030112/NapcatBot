@@ -112,6 +112,7 @@ async def _watch_env(
                 hide=new_settings.hide,
                 owner_name=new_settings.owner_name,
                 owner_id=new_settings.owner_id,
+                topic_sender=adapter,
             )
             settings = new_settings
             log_json(

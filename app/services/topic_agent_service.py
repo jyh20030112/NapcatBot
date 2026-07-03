@@ -100,6 +100,7 @@ class TopicAgentService:
         )
         self._summary_lock = asyncio.Lock()
         self._summary_tasks: dict[int, asyncio.Task[None]] = {}
+        self._profile_tasks: dict[int, asyncio.Task[None]] = {}
 
     async def assign_topic(
         self,
@@ -110,11 +111,24 @@ class TopicAgentService:
             topic_id = state.message_topic_map.get(message.reply_to)
             if topic_id and topic_id in state.topics:
                 topic = state.topics[topic_id]
+                db_topic = self.store.get_topic_by_no(message.group_id, topic_id)
+                if db_topic is not None:
+                    self.store.assign_message_to_topic(
+                        group_id=message.group_id,
+                        message=message,
+                        topic_id=int(db_topic["id"]),
+                    )
                 state.record_topic_message(topic, message)
+                self._schedule_profile_refresh(message.group_id)
                 return topic
 
         self.tool_handler.begin_turn(message)
-        task = self.context_builder.build_topic_task(message=message)
+        profile = self.store.get_group_profile(message.group_id)
+        group_profile = str(profile["profile"]) if profile and profile.get("profile") else ""
+        task = self.context_builder.build_topic_task(
+            message=message,
+            group_profile=group_profile,
+        )
         try:
             await self.agent.runtime(task=task)
         except Exception:
@@ -133,6 +147,7 @@ class TopicAgentService:
             return self._fallback_create_topic(message, state)
 
         self._schedule_summary_refresh(int(topic["id"]))
+        self._schedule_profile_refresh(message.group_id)
         return _sync_topic_state(topic, message, state)
 
     def _fallback_create_topic(
@@ -161,6 +176,7 @@ class TopicAgentService:
             action="fallback_create_topic",
         )
         self._schedule_summary_refresh(int(topic["id"]))
+        self._schedule_profile_refresh(message.group_id)
         return _sync_topic_state(topic, message, state)
 
     def _schedule_summary_refresh(self, topic_id: int) -> None:
@@ -210,12 +226,91 @@ class TopicAgentService:
         async with self._summary_lock:
             await self.summary_agent.runtime(task=task)
 
+    def _schedule_profile_refresh(self, group_id: int) -> None:
+        if not self.store.group_profile_stale(group_id):
+            return
+        task = self._profile_tasks.get(group_id)
+        if task is not None and not task.done():
+            return
+
+        task = asyncio.create_task(self._refresh_group_profile(group_id))
+        self._profile_tasks[group_id] = task
+        task.add_done_callback(
+            lambda done: self._profile_tasks.pop(group_id, None)
+        )
+
+    async def _refresh_group_profile(self, group_id: int) -> None:
+        await asyncio.sleep(0)
+        topics = self.store.list_all_topics(group_id, limit=50)
+        if not topics:
+            return
+
+        topic_lines: list[str] = []
+        for t in topics:
+            status_tag = "" if t["status"] == "active" else " (已沉寂)"
+            topic_lines.append(
+                f"- [{t['topic_no']}] {t['title']}{status_tag}: {t['summary']}"
+            )
+        topics_text = "\n".join(topic_lines)
+
+        task = f"""\
+根据以下群聊话题列表，生成该群的群聊画像。
+
+群号: {group_id}
+话题列表:
+{topics_text}
+
+要求：
+1. 概括这个群通常聊什么话题、什么领域。
+2. 描述群成员的互动风格（技术向、闲聊向、爱开玩笑等）。
+3. 控制在 200 字以内。
+4. 只输出画像文本，不要 JSON，不要 Markdown。"""
+
+        try:
+            profile = await self.summary_agent.chat_text(
+                [
+                    {
+                        "role": "system",
+                        "content": "你是群聊分析师，根据话题列表生成群聊画像。输出纯文本，不要 JSON。",
+                    },
+                    {"role": "user", "content": task},
+                ],
+            )  # ty:ignore[missing-argument]
+            profile = (profile or "").strip()[:800]  # ty:ignore[unresolved-attribute]
+            if profile:
+                self.store.upsert_group_profile(group_id, profile)
+                self.store.delete_inactive_topics(group_id)
+                log_json(
+                    logger,
+                    logging.INFO,
+                    "group_profile_updated",
+                    group_id=group_id,
+                    profile_len=len(profile),
+                )
+        except Exception:
+            logger.log(
+                logging.ERROR,
+                "group_profile_refresh_failed",
+                exc_info=True,
+                extra={
+                    "event": "group_profile_refresh_failed",
+                    "data": {"group_id": group_id},
+                },
+            )
+
     async def shutdown(self) -> None:
         for task in list(self._summary_tasks.values()):
             task.cancel()
         if self._summary_tasks:
             await asyncio.gather(
                 *self._summary_tasks.values(),
+                return_exceptions=True,
+            )
+        for task in list(self._profile_tasks.values()):
+            task.cancel()
+        if self._profile_tasks:
+            await asyncio.gather(
+                *self._profile_tasks.values(),
                 return_exceptions=True,
             )
         await self.summary_agent.shutdown()

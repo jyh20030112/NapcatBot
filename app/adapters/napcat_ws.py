@@ -167,7 +167,18 @@ class NapcatWebSocketAdapter:
         try:
             async with self._send_lock:
                 await self._websocket.send(json.dumps(payload, ensure_ascii=False))
-            return await asyncio.wait_for(future, timeout=timeout)
+            try:
+                return await asyncio.wait_for(future, timeout=timeout)
+            except asyncio.TimeoutError:
+                log_json(
+                    logger,
+                    logging.WARNING,
+                    "napcat_action_timeout",
+                    action=action,
+                    echo=echo,
+                    timeout=timeout,
+                )
+                return {"status": "timeout", "echo": echo}
         except asyncio.TimeoutError:
             self._pending_responses.pop(echo, None)
             log_json(

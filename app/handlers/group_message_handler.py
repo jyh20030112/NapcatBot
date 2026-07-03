@@ -8,6 +8,7 @@ from app.core.context_builder import ContextBuilder
 from app.core.group_state import GroupState
 from app.core.json_logging import log_json
 from app.core.message import normalize_group_message
+from app.core.topic_store import TopicStore
 from app.llms_tools.napcat_topic_tools import TopicActionSender
 from app.services.topic_agent_service import TopicAgentService
 from app.services.reply_agent_service import NapcatReplyAgent
@@ -113,11 +114,26 @@ class GroupMessageHandler:
             participants=len(topic.participants),
             summary=_preview(topic.summary),
         )
-        analysis = await self.decision_service.analyze(
-            message=message,
-            topic=topic,
-            state=state,
-        )
+        group_profile = _load_profile(self.topic_agent.store, message.group_id)
+        try:
+            analysis = await self.decision_service.analyze(
+                message=message,
+                topic=topic,
+                state=state,
+                group_profile=group_profile,
+            )
+        except Exception:
+            logger.log(
+                logging.ERROR,
+                "message_analysis_failed",
+                exc_info=True,
+                extra={
+                    "event": "message_analysis_failed",
+                    "data": {"group_id": message.group_id, "message_id": message.message_id},
+                },
+            )
+            return
+
         log_json(
             logger,
             logging.INFO,
@@ -150,14 +166,26 @@ class GroupMessageHandler:
             topic=topic,
             state=state,
             analysis=analysis,
+            group_profile=group_profile,
         )
-        await self.agent.handle_message(
-            task=task,
-            message=message,
-            topic=topic,
-            state=state,
-            analysis=analysis,
-        )
+        try:
+            await self.agent.handle_message(
+                task=task,
+                message=message,
+                topic=topic,
+                state=state,
+                analysis=analysis,
+            )
+        except Exception:
+            logger.log(
+                logging.ERROR,
+                "reply_agent_failed",
+                exc_info=True,
+                extra={
+                    "event": "reply_agent_failed",
+                    "data": {"group_id": message.group_id, "message_id": message.message_id},
+                },
+            )
 
     async def reload_runtime(
         self,
@@ -168,6 +196,7 @@ class GroupMessageHandler:
         hide: bool = False,
         owner_name: str = "",
         owner_id: int = 0,
+        topic_sender: TopicActionSender | None = None,
     ) -> None:
         async with self._reload_lock:
             old_agent = self.agent
@@ -187,6 +216,7 @@ class GroupMessageHandler:
                 bot_id=bot_id,
                 owner_name=owner_name,
                 owner_id=owner_id,
+                sender=topic_sender,
             )
             self.decision_service = DecisionService(
                 context_builder=self.context_builder,
@@ -231,6 +261,16 @@ def _sender_field(event: dict[str, Any], field: str) -> Any:
     if not isinstance(sender, dict):
         return None
     return sender.get(field)
+
+
+def _load_profile(store: TopicStore, group_id: int) -> str:
+    try:
+        profile = store.get_group_profile(group_id)
+    except Exception:
+        return ""
+    if profile is None:
+        return ""
+    return str(profile.get("profile") or "")
 
 
 def _preview(text: str, *, limit: int = 80) -> str:

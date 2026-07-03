@@ -59,17 +59,16 @@ class DecisionService:
         message: BotMessage,
         topic: TopicState,
         state: GroupState,
+        group_profile: str = "",
     ) -> ReplyDecision:
         task = self.context_builder.build_analysis_task(
             message=message,
             topic=topic,
             state=state,
+            group_profile=group_profile,
         )
         payload = await self.agent.chat_json(
-            [
-                {"role": "system", "content": ANALYSIS_SYSTEM_PROMPT},
-                {"role": "user", "content": task},
-            ],
+            [{"role": "user", "content": task}],
         )
         return ReplyDecision.from_payload(
             payload,
