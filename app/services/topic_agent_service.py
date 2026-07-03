@@ -267,7 +267,7 @@ class TopicAgentService:
 4. 只输出画像文本，不要 JSON，不要 Markdown。"""
 
         try:
-            profile = await self.summary_agent.chat_text(
+            result = await self.summary_agent.chat_text(
                 [
                     {
                         "role": "system",
@@ -275,8 +275,9 @@ class TopicAgentService:
                     },
                     {"role": "user", "content": task},
                 ],
-            )  # ty:ignore[missing-argument]
-            profile = (profile or "").strip()[:800]  # ty:ignore[unresolved-attribute]
+                tools=None,
+            )
+            profile = (result.content or "").strip()[:800] if result else ""
             if profile:
                 self.store.upsert_group_profile(group_id, profile)
                 self.store.delete_inactive_topics(group_id)
