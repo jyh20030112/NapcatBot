@@ -37,6 +37,7 @@ async def amain() -> None:
         hide=settings.hide,
         owner_name=settings.owner_name,
         owner_id=settings.owner_id,
+        topic_sender=adapter,
     )
     reload_task = asyncio.create_task(
         _watch_env(

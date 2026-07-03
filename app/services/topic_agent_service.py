@@ -13,7 +13,11 @@ from app.core.json_logging import log_json
 from app.core.message import BotMessage
 from app.core.reply import detect_risk
 from app.core.topic_store import TopicStore
-from app.llms_tools.napcat_topic_tools import TopicSummaryToolHandler, TopicToolHandler
+from app.llms_tools.napcat_topic_tools import (
+    TopicActionSender,
+    TopicSummaryToolHandler,
+    TopicToolHandler,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -26,12 +30,12 @@ TOPIC_SYSTEM_PROMPT = """\
 规则：
 1. 必须通过工具读取和写入话题。
 2. 先调用 list_recent_topics 查看当前群最近话题。
-3. 如果 summary 不够判断，可以调用 get_topic_messages 查看某个话题最近消息。
+3. 如果 summary 不够判断，可以调用 get_recent_group_messages 直接从 QQ 拉取最近的群聊消息。
 4. 如果当前消息明显延续某个话题，调用 assign_message_to_topic。
 5. 如果当前消息开启了新话题，先调用 create_topic，再调用 assign_message_to_topic。
 6. assign_message_to_topic 是最终动作，完成后不要再输出普通文本。
 7. 不要把无关消息硬归到唯一活跃话题；不确定时创建新话题。
-8. topics.summary 是摘要，topics.history 是最近原始聊天记录；归类时 history 比 summary 更适合判断话题延续。
+8. topics.summary 是 LLM 生成的语义摘要；如果不够判断，调 get_recent_group_messages 拉取原始聊天记录。
 """.strip()
 
 
@@ -58,6 +62,7 @@ class TopicAgentService:
         bot_id: int,
         owner_name: str = "",
         owner_id: int = 0,
+        sender: TopicActionSender | None = None,
         store: TopicStore | None = None,
         config: ModelConfig | None = None,
         max_steps: int = 8,
@@ -65,7 +70,7 @@ class TopicAgentService:
         self.context_builder = context_builder
         self.store = store or TopicStore(_topic_db_path())
         resolved_config = config or ModelConfig.from_env()
-        self.tool_handler = TopicToolHandler(self.store)
+        self.tool_handler = TopicToolHandler(self.store, sender=sender)
         self.summary_tool_handler = TopicSummaryToolHandler(self.store)
         self.agent = BaseAgent(
             config=resolved_config,
@@ -102,18 +107,11 @@ class TopicAgentService:
         state: GroupState,
     ) -> TopicState:
         if message.reply_to:
-            topic = self.store.get_topic_by_message(
-                group_id=message.group_id,
-                message_id=message.reply_to,
-            )
-            if topic is not None:
-                assigned = self.store.assign_message_to_topic(
-                    group_id=message.group_id,
-                    message=message,
-                    topic_id=int(topic["id"]),
-                )
-                self._schedule_summary_refresh(int(assigned["id"]))
-                return _sync_topic_state(assigned, message, state)
+            topic_id = state.message_topic_map.get(message.reply_to)
+            if topic_id and topic_id in state.topics:
+                topic = state.topics[topic_id]
+                state.record_topic_message(topic, message)
+                return topic
 
         self.tool_handler.begin_turn(message)
         task = self.context_builder.build_topic_task(message=message)
@@ -237,19 +235,17 @@ def _sync_topic_state(
             topic_id=topic_id,
             title=str(topic_row["title"]),
             summary=str(topic_row["summary"]),
-            history=str(topic_row.get("history") or ""),
             last_active_at=float(topic_row["updated_at"]),  # ty:ignore[invalid-argument-type]
         )
         state.topics[topic_id] = topic
     else:
         topic.title = str(topic_row["title"])
         topic.summary = str(topic_row["summary"])
-        topic.history = str(topic_row.get("history") or "")
         topic.last_active_at = float(topic_row["updated_at"])  # ty:ignore[invalid-argument-type]
 
     state.record_topic_message(topic, message)
     recent_text = " / ".join(item.text for item in topic.last_messages[-20:])
-    topic.risk_level = detect_risk(topic.history or recent_text)
+    topic.risk_level = detect_risk(recent_text)
     return topic
 
 

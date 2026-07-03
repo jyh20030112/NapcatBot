@@ -1,12 +1,30 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, Protocol
 
 from simagentplg import MethodToolHandler, StepOutcome
 
 from app.core.message import BotMessage
 from app.core.topic_store import TopicStore
+
+
+class TopicActionSender(Protocol):
+    async def send_action(
+        self,
+        action: str,
+        params: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Send a OneBot action through NapCat (fire-and-forget)."""
+
+    async def send_action_and_wait(
+        self,
+        action: str,
+        params: dict[str, Any],
+        *,
+        timeout: float = 10.0,
+    ) -> dict[str, Any]:
+        """Send a OneBot action and wait for the response."""
 
 
 LIST_RECENT_TOPICS_TOOL = {
@@ -25,18 +43,18 @@ LIST_RECENT_TOPICS_TOOL = {
     },
 }
 
-GET_TOPIC_MESSAGES_TOOL = {
+GET_RECENT_GROUP_MESSAGES_TOOL = {
     "type": "function",
     "function": {
-        "name": "get_topic_messages",
-        "description": "Get recent messages assigned to a topic.",
+        "name": "get_recent_group_messages",
+        "description": "Pull recent group messages directly from QQ to understand what people are talking about. Use this to judge topic continuity when list_recent_topics's history is insufficient.",
         "parameters": {
             "type": "object",
             "properties": {
-                "topic_id": {"type": "integer"},
-                "limit": {"type": "integer"},
+                "group_id": {"type": "integer"},
+                "count": {"type": "integer"},
             },
-            "required": ["topic_id", "limit"],
+            "required": ["group_id", "count"],
         },
     },
 }
@@ -94,17 +112,22 @@ UPDATE_TOPIC_SUMMARY_TOOL = {
 
 
 class TopicToolHandler(MethodToolHandler):
-    def __init__(self, store: TopicStore) -> None:
+    def __init__(
+        self,
+        store: TopicStore,
+        sender: TopicActionSender | None = None,
+    ) -> None:
         super().__init__(
             (
                 LIST_RECENT_TOPICS_TOOL,
-                GET_TOPIC_MESSAGES_TOOL,
+                GET_RECENT_GROUP_MESSAGES_TOOL,
                 CREATE_TOPIC_TOOL,
                 ASSIGN_MESSAGE_TO_TOPIC_TOOL,
                 UPDATE_TOPIC_SUMMARY_TOOL,
             )
         )
         self.store = store
+        self.sender = sender
         self.current_message: BotMessage | None = None
         self.assigned_topic_id: int | None = None
 
@@ -125,13 +148,44 @@ class TopicToolHandler(MethodToolHandler):
                 topic["history"] = history[-500:]
         return StepOutcome(topics)
 
-    async def do_get_topic_messages(
+    async def do_get_recent_group_messages(
         self,
         arguments: Mapping[str, Any],
     ) -> StepOutcome:
-        topic_id = int(arguments.get("topic_id", 0))
-        limit = _limit(arguments.get("limit"), default=5, maximum=20)
-        return StepOutcome(self.store.get_topic_messages(topic_id, limit=limit))
+        group_id = int(arguments.get("group_id", 0))
+        count = _limit(arguments.get("count"), default=20, maximum=50)
+        if self.sender is None:
+            return StepOutcome(
+                {"status": "error", "error": "sender not available"}
+            )
+        result = await self.sender.send_action_and_wait(
+            "get_group_msg_history",
+            {
+                "group_id": str(group_id),
+                "count": count,
+                "reverse_order": True,
+            },
+        )
+        messages = result.get("data", {}).get("messages", result.get("messages", []))
+        lines: list[str] = []
+        for msg in messages:
+            if not isinstance(msg, dict):
+                continue
+            nickname = (
+                msg.get("sender", {}).get("card")
+                or msg.get("sender", {}).get("nickname")
+                or str(msg.get("user_id", ""))
+            )
+            text = _extract_text(msg.get("message"))
+            if text:
+                lines.append(f"{nickname}({msg.get('user_id', '')}): {text}")
+        return StepOutcome(
+            {
+                "group_id": group_id,
+                "count": len(lines),
+                "messages": list(reversed(lines)),
+            }
+        )
 
     async def do_create_topic(
         self,
@@ -210,3 +264,18 @@ def _limit(value: Any, *, default: int, maximum: int) -> int:
     except (TypeError, ValueError):
         return default
     return max(1, min(maximum, number))
+
+
+def _extract_text(message: Any) -> str:
+    if isinstance(message, str):
+        return message
+    if not isinstance(message, list):
+        return ""
+    parts: list[str] = []
+    for segment in message:
+        if not isinstance(segment, dict):
+            continue
+        if segment.get("type") == "text":
+            data = segment.get("data") if isinstance(segment.get("data"), dict) else {}
+            parts.append(str(data.get("text", "")))
+    return " ".join(part for part in parts if part)

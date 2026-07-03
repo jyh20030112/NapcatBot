@@ -6,34 +6,23 @@ from typing import Any, Literal, get_args
 
 
 ReplyIntent = Literal[
-    "SILENCE",
-    "ANSWER",
-    "AGREE",
-    "ASK_BACK",
-    "JOKE_LIGHT",
-    "COOL_DOWN",
-    "DEFLECT",
-]
-ReplyStyle = Literal[
-    "short_reply",
-    "short_explain",
-    "ask_one_question",
-    "light_joke",
-    "cool_down",
-    "end_topic",
+    "ASKING",
+    "CHATTING",
+    "AGREEING",
+    "ARGUING",
+    "GREETING",
+    "DEFUSING",
+    "OTHER",
 ]
 RiskLevel = Literal["normal", "sensitive", "conflict"]
-ReplyTarget = Literal["current_user", "topic", "group"]
 
 
 @dataclass(slots=True)
 class ReplyDecision:
     should_reply: bool = True
     topic_id: str = ""
-    reply_intent: ReplyIntent = "SILENCE"
-    reply_style: ReplyStyle = "short_reply"
+    reply_intent: ReplyIntent = "OTHER"
     risk_level: RiskLevel = "normal"
-    reply_target: ReplyTarget = "topic"
     confidence: float = 1.0
     reason: str = ""
 
@@ -48,10 +37,8 @@ class ReplyDecision:
         return cls(
             should_reply=False,
             topic_id=topic_id,
-            reply_intent="SILENCE",
-            reply_style="short_reply",
+            reply_intent="OTHER",
             risk_level=risk_level,
-            reply_target="topic",
             confidence=1.0,
             reason=reason,
         )
@@ -68,25 +55,15 @@ class ReplyDecision:
             reply_intent=_literal_value(
                 payload.get("reply_intent"),
                 ReplyIntent,
-                default="SILENCE",
-            ),
-            reply_style=_literal_value(
-                payload.get("reply_style"),
-                ReplyStyle,
-                default="short_reply",
+                default="OTHER",
             ),
             risk_level=_literal_value(
                 payload.get("risk_level"),
                 RiskLevel,
                 default="normal",
             ),
-            reply_target=_literal_value(
-                payload.get("reply_target"),
-                ReplyTarget,
-                default="topic",
-            ),
             confidence=_float_between(payload.get("confidence"), 0.0, 1.0),
-            reason=str(payload.get("reason") or payload.get("analysis") or "no reason")[:1200],
+            reason=str(payload.get("analysis") or payload.get("reason") or "no reason")[:1200],
         )
 
 

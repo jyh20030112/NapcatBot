@@ -25,6 +25,7 @@ class NapcatWebSocketAdapter:
         self._websocket: Any | None = None
         self._send_lock = asyncio.Lock()
         self._dry_run_actions = False
+        self._pending_responses: dict[str, asyncio.Future[dict[str, Any]]] = {}
 
     def set_action_dry_run(self, enabled: bool) -> None:
         if self._dry_run_actions == enabled:
@@ -66,11 +67,28 @@ class NapcatWebSocketAdapter:
         self._websocket = websocket
         try:
             async for raw_payload in websocket:
-                event = self._decode_event(raw_payload)
-                if event is None:
+                payload = _parse_payload(raw_payload)
+                if payload is None:
                     continue
-                _log_event_summary(event)
-                await handler.handle_event(event)
+                # Resolve pending response future
+                echo = payload.get("echo")
+                if echo and echo in self._pending_responses:
+                    future = self._pending_responses.pop(echo)
+                    if not future.done():
+                        future.set_result(payload)
+                    continue
+                # Must be an event
+                if "post_type" not in payload:
+                    if not echo:
+                        log_json(
+                            logger,
+                            logging.WARNING,
+                            "napcat_payload_missing_post_type",
+                            payload=_preview(payload),
+                        )
+                    continue
+                _log_event_summary(payload)
+                await handler.handle_event(payload)
         finally:
             if self._websocket is websocket:
                 self._websocket = None
@@ -127,41 +145,66 @@ class NapcatWebSocketAdapter:
         )
         return {"status": "sent", "echo": payload["echo"]}
 
-    @staticmethod
-    def _decode_event(raw_payload: Any) -> dict[str, Any] | None:
-        if isinstance(raw_payload, bytes):
-            raw_payload = raw_payload.decode("utf-8", errors="replace")
+    async def send_action_and_wait(
+        self,
+        action: str,
+        params: dict[str, Any],
+        *,
+        timeout: float = 10.0,
+    ) -> dict[str, Any]:
+        echo = f"echo-{uuid4().hex}"
+        payload = {"action": action, "params": params, "echo": echo}
+        if self._dry_run_actions:
+            return {"status": "dry_run", "echo": echo}
+
+        if self._websocket is None:
+            raise RuntimeError("NapCat websocket is not connected")
+
+        loop = asyncio.get_running_loop()
+        future: asyncio.Future[dict[str, Any]] = loop.create_future()
+        self._pending_responses[echo] = future
+
         try:
-            payload = json.loads(raw_payload)
-        except (TypeError, json.JSONDecodeError):
+            async with self._send_lock:
+                await self._websocket.send(json.dumps(payload, ensure_ascii=False))
+            return await asyncio.wait_for(future, timeout=timeout)
+        except asyncio.TimeoutError:
+            self._pending_responses.pop(echo, None)
             log_json(
                 logger,
                 logging.WARNING,
-                "napcat_payload_invalid_json",
-                payload=_preview(raw_payload),
+                "napcat_action_timeout",
+                action=action,
+                echo=echo,
+                timeout=timeout,
             )
-            return None
-        if not isinstance(payload, dict):
-            log_json(
-                logger,
-                logging.WARNING,
-                "napcat_payload_not_object",
-                payload=_preview(payload),
-            )
-            return None
-        if "post_type" not in payload:
-            # NapCat action responses (with "echo") arrive over the same WebSocket;
-            # silently skip them instead of warning.
-            if "echo" in payload:
-                return None
-            log_json(
-                logger,
-                logging.WARNING,
-                "napcat_payload_missing_post_type",
-                payload=_preview(payload),
-            )
-            return None
-        return payload
+            return {"status": "timeout", "echo": echo}
+        finally:
+            self._pending_responses.pop(echo, None)
+
+
+def _parse_payload(raw_payload: Any) -> dict[str, Any] | None:
+    if isinstance(raw_payload, bytes):
+        raw_payload = raw_payload.decode("utf-8", errors="replace")
+    try:
+        payload = json.loads(raw_payload)
+    except (TypeError, json.JSONDecodeError):
+        log_json(
+            logger,
+            logging.WARNING,
+            "napcat_payload_invalid_json",
+            payload=_preview(raw_payload),
+        )
+        return None
+    if not isinstance(payload, dict):
+        log_json(
+            logger,
+            logging.WARNING,
+            "napcat_payload_not_object",
+            payload=_preview(payload),
+        )
+        return None
+    return payload
 
 
 def _log_event_summary(event: dict[str, Any]) -> None:

@@ -8,6 +8,7 @@ from app.core.context_builder import ContextBuilder
 from app.core.group_state import GroupState
 from app.core.json_logging import log_json
 from app.core.message import normalize_group_message
+from app.llms_tools.napcat_topic_tools import TopicActionSender
 from app.services.topic_agent_service import TopicAgentService
 from app.services.reply_agent_service import NapcatReplyAgent
 from app.services.decision_agent_service import DecisionService
@@ -25,6 +26,7 @@ class GroupMessageHandler:
         hide: bool = False,
         owner_name: str = "",
         owner_id: int = 0,
+        topic_sender: TopicActionSender | None = None,
     ) -> None:
         self.bot_id = bot_id
         self.bot_name = bot_name
@@ -39,6 +41,7 @@ class GroupMessageHandler:
             bot_id=bot_id,
             owner_name=owner_name,
             owner_id=owner_id,
+            sender=topic_sender,
         )
         self.decision_service = DecisionService(
             context_builder=self.context_builder,
