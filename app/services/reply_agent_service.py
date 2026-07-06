@@ -55,7 +55,7 @@ class NapcatReplyAgent:
         owner_name: str = "",
         owner_id: int = 0,
         config: ModelConfig | None = None,
-        max_steps: int = 4,
+        max_steps: int = 20,
     ) -> None:
         self.bot_name = bot_name
         self.bot_id = bot_id

@@ -11,6 +11,10 @@ wheels/
 
 .env
 
-napcat
-
+# 存储的数据信息
 data
+
+# 
+.playwright-mcp
+
+

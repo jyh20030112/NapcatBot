@@ -102,18 +102,12 @@ def detect_risk(text: str) -> RiskLevel:
     return "normal"
 
 
-MAX_REPLY_LENGTH = 180
-
-
-def clean_reply(text: str, *, max_length: int = MAX_REPLY_LENGTH) -> str:
+def clean_reply(text: str) -> str:
     text = text.strip()
     text = re.sub(r"```.*?```", "", text, flags=re.S)
     text = re.sub(r"[*_`>#~-]", "", text)
     text = re.sub(r"\s+", " ", text)
-    text = text.strip()
-    if len(text) <= max_length:
-        return text
-    return text[: max_length - 1].rstrip() + "…"
+    return text.strip()
 
 
 def _literal_value(value: Any, literal_type: Any, *, default: Any) -> Any:
