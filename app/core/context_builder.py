@@ -19,7 +19,7 @@ class ContextBuilder:
     ) -> str:
         profile_block = f"\n【群聊画像】\n{group_profile}\n" if group_profile else ""
         return f"""
-请为当前 QQ 群消息归类话题。
+请为这条 QQ 群消息归类话题。
 
 当前时间: {datetime.now(_CN_TZ).strftime("%Y-%m-%d %H:%M")}
 {profile_block}
@@ -31,12 +31,10 @@ class ContextBuilder:
 - text: {message.text}
 - reply_to: {message.reply_to or "无"}
 
-必须按顺序使用工具：
+操作步骤：
 1. list_recent_topics(group_id={message.group_id}, limit=10)
-2. list_recent_topics 返回的 summary 是 LLM 生成的语义摘要，history 是拼接的原始聊天记录；归类时优先用 history 判断话题延续
-3. 如果 summary 和 history 都不够判断，可以调 get_recent_group_messages(group_id={message.group_id}, count=20) 从 QQ 实时拉取最近的群聊消息
-4. 如果属于已有话题，调用 assign_message_to_topic(group_id, message_id, topic_id, msg)
-5. 如果是新话题，调用 create_topic 后再调用 assign_message_to_topic
+2. 如果需要更多信息，get_recent_group_messages(group_id={message.group_id}, count=20)
+3. 归入已有话题 → assign_message_to_topic，或 新话题 → create_topic + assign_message_to_topic
 """.strip()
 
 
@@ -50,17 +48,11 @@ class ContextBuilder:
         history: str,
     ) -> str:
         return f"""
-请根据 QQ 群话题历史生成一个真正的话题摘要，并调用工具 update_topic_summary 写回。
+根据以下话题的历史聊天生成摘要，调用 update_topic_summary(topic_id={topic_id}, summary=...) 写回。
 
 当前时间: {datetime.now(_CN_TZ).strftime("%Y-%m-%d %H:%M")}
 
-要求：
-1. 摘要必须概括话题在讨论什么、当前结论或待解决点。
-2. 不要逐条拼接聊天记录。
-3. 控制在 80 字以内。
-4. 只调用 update_topic_summary(topic_id={topic_id}, summary=...)，不要输出普通文本。
-
-【话题】
+【话题信息】
 topic_id: {topic_id}
 topic_no: {topic_no}
 标题: {title}
@@ -80,35 +72,21 @@ topic_no: {topic_no}
     ) -> str:
         profile_block = f"\n【群聊画像】\n{group_profile}\n" if group_profile else ""
         return f"""
-分析这条 QQ 群聊消息的情感导向和用户意图。不要决定是否回复，只做分析。
+分析这条消息。只输出 JSON。
 
 当前时间: {datetime.now(_CN_TZ).strftime("%Y-%m-%d %H:%M")}
 {profile_block}
-【你的昵称】
-{self.bot_name}
+【你的昵称】{self.bot_name}
 
 【当前话题】
-topic_id: {topic.topic_id}
-标题: {topic.title}
-摘要: {topic.summary}
-风险: {topic.risk_level}
+topic_id: {topic.topic_id} / 标题: {topic.title} / 摘要: {topic.summary} / 风险: {topic.risk_level}
 
-【群聊最近消息】（按时间顺序，* 表示属于当前话题，包含你的回复）
+【群聊最近消息】* 表示属于当前话题
 {_build_message_list(topic, state, count=24)}
 
 【当前消息】
-发送者: {message.nickname}
-发送者QQ: {message.user_id}
-内容: {message.text}
-是否@你: {message.is_at_bot}
-是否提到你: {message.mentions_bot_name}
-是否回复某条消息: {bool(message.reply_to)}
-
-请只输出 JSON。analysis 必须给出详细分析，至少包含：
-- 当前消息是否直接触达你，依据是什么
-- 发送者的情绪和意图（提问/闲聊/争吵/附和/打招呼等）
-- 当前消息和话题上下文的关系
-- 风险判断（normal / sensitive / conflict）
+{message.nickname}({message.user_id}): {message.text}
+@你: {message.is_at_bot} / 提到你: {message.mentions_bot_name} / 回复消息: {bool(message.reply_to)}
 
 输出格式：
 {{
