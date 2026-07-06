@@ -143,7 +143,6 @@ class GroupMessageHandler:
             topic_id=analysis.topic_id,
             intent=analysis.reply_intent,
             risk=analysis.risk_level,
-            confidence=round(analysis.confidence, 2),
             analysis=_preview(analysis.reason, limit=800),
         )
 
@@ -157,7 +156,6 @@ class GroupMessageHandler:
                 topic_id=topic.topic_id,
                 intent=analysis.reply_intent,
                 risk=analysis.risk_level,
-                confidence=round(analysis.confidence, 2),
                 analysis=_preview(analysis.reason, limit=800),
             )
 

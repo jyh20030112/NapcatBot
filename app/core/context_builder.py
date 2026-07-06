@@ -93,7 +93,6 @@ topic_id: {topic.topic_id} / 标题: {topic.title} / 摘要: {topic.summary} / �
   "topic_id": "{topic.topic_id}",
   "reply_intent": "ASKING",
   "risk_level": "normal",
-  "confidence": 0.9,
   "analysis": "消息直接@了{self.bot_name}，发送者在询问是否在线。情绪友好，属于闲聊打招呼。话题延续了之前的相关讨论。风险正常。"
 }}
 """.strip()

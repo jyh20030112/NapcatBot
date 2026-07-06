@@ -23,7 +23,6 @@ class ReplyDecision:
     topic_id: str = ""
     reply_intent: ReplyIntent = "OTHER"
     risk_level: RiskLevel = "normal"
-    confidence: float = 1.0
     reason: str = ""
 
     @classmethod
@@ -39,7 +38,6 @@ class ReplyDecision:
             topic_id=topic_id,
             reply_intent="OTHER",
             risk_level=risk_level,
-            confidence=1.0,
             reason=reason,
         )
 
@@ -62,7 +60,6 @@ class ReplyDecision:
                 RiskLevel,
                 default="normal",
             ),
-            confidence=_float_between(payload.get("confidence"), 0.0, 1.0),
             reason=str(payload.get("analysis") or payload.get("reason") or "no reason")[:1200],
         )
 
@@ -115,9 +112,3 @@ def _literal_value(value: Any, literal_type: Any, *, default: Any) -> Any:
     return value if value in allowed else default
 
 
-def _float_between(value: Any, minimum: float, maximum: float) -> float:
-    try:
-        number = float(value)
-    except (TypeError, ValueError):
-        return minimum
-    return max(minimum, min(maximum, number))

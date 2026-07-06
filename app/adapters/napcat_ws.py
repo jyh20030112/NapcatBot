@@ -135,7 +135,7 @@ class NapcatWebSocketAdapter:
             await self._websocket.send(json.dumps(payload, ensure_ascii=False))
         log_json(
             logger,
-            logging.INFO,
+            logging.DEBUG,
             "napcat_action_sent",
             action=action,
             echo=payload["echo"],

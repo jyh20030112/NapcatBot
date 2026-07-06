@@ -16,6 +16,17 @@ logger = logging.getLogger(__name__)
 
 async def amain() -> None:
     configure_json_logging(level=logging.INFO)
+
+    # Suppress simagentplg's verbose tool-call logging
+    for noisy in (
+        "napcat_topic_classifier",
+        "napcat_topic_summarizer",
+        "napcat_group_agent",
+        "napcat_message_analyzer",
+        "MCP",
+    ):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
+
     env_path = Path(".env")
     settings = Settings.from_env(env_path=env_path)
     adapter = NapcatWebSocketAdapter(
