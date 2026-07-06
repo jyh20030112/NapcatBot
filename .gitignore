@@ -11,10 +11,10 @@ wheels/
 
 .env
 
-# 存储的数据信息
+# database files
 data
 
-# 
+# Playwright 
 .playwright-mcp
 
 
