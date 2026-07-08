@@ -18,7 +18,6 @@ from app.core.message import normalize_group_message
 from app.core.topic_store import TopicStore
 from app.services.topic_agent_service import TopicAgentService
 
-
 DUMMY_CONFIG = ModelConfig(
     model="test-model",
     api_key="test-key",
@@ -103,7 +102,9 @@ class TopicAgentServiceTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(topic.topic_id, "topic_1")
             self.assertEqual(topic.title, "项目启动状态")
             self.assertEqual(state.message_topic_map["m1"], "topic_1")
-            self.assertEqual(store.get_topic_messages(1, limit=5)[0]["text"], "蛋总 是否启动成功")
+            self.assertEqual(
+                store.get_topic_messages(1, limit=5)[0]["text"], "蛋总 是否启动成功"
+            )
             stored = store.get_topic(1)
             assert stored is not None
             self.assertEqual(stored["history"], "蛋总 是否启动成功")
@@ -143,7 +144,6 @@ class TopicAgentServiceTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(stored["history"], "蛋总 是否启动成功")
             self.assertEqual(stored["summary"], "用户询问项目是否已经启动成功")
 
-
     def test_topic_store_keeps_history_separate_from_summary(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             store = TopicStore(Path(temp_dir) / "topics.sqlite3")
@@ -175,7 +175,9 @@ class TopicAgentServiceTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(assigned["summary"], "讨论 NapCat WebSocket 接入方案")
             self.assertEqual(assigned["history"], "NapCat websocket 怎么接")
 
-    async def test_topic_agent_assigns_reply_to_existing_topic_without_llm(self) -> None:
+    async def test_topic_agent_assigns_reply_to_existing_topic_without_llm(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             store = TopicStore(Path(temp_dir) / "topics.sqlite3")
             original = normalize_group_message(
@@ -232,7 +234,9 @@ class TopicAgentServiceTests(unittest.IsolatedAsyncioTestCase):
 
             self.assertEqual(topic.topic_id, "topic_1")
             self.assertEqual(state.message_topic_map["m2"], "topic_1")
-            self.assertEqual(store.get_topic_messages(1, limit=5)[-1]["message_id"], "m2")
+            self.assertEqual(
+                store.get_topic_messages(1, limit=5)[-1]["message_id"], "m2"
+            )
 
 
 if __name__ == "__main__":

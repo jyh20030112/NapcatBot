@@ -17,7 +17,6 @@ from app.core.message import normalize_group_message
 from app.core.reply import ReplyDecision
 from app.services.reply_agent_service import NapcatReplyAgent
 
-
 DUMMY_CONFIG = ModelConfig(
     model="test-model",
     api_key="test-key",
@@ -125,7 +124,9 @@ class ReplyAgentServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(state.bot_recent_replies, ["@200 已经启动了"])
         self.assertEqual(topic.bot_replied_count, 1)
         self.assertEqual(state.recent_decisions, [decision])
-        self.assertIn("should_reply: True", FakeReplyRuntime.instances[0].runtime_tasks[0])
+        self.assertIn(
+            "should_reply: True", FakeReplyRuntime.instances[0].runtime_tasks[0]
+        )
 
 
 if __name__ == "__main__":

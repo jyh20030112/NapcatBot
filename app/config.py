@@ -20,14 +20,10 @@ class Settings:
         load_dotenv(dotenv_path=env_path, override=True)
 
         ws_host = (
-            os.getenv("NAPCAT_WS_HOST")
-            or os.getenv("WS_HOST")
-            or "0.0.0.0"
+            os.getenv("NAPCAT_WS_HOST") or os.getenv("WS_HOST") or "0.0.0.0"
         ).strip()
         ws_port_raw = (
-            os.getenv("NAPCAT_WS_PORT")
-            or os.getenv("WS_PORT")
-            or "8082"
+            os.getenv("NAPCAT_WS_PORT") or os.getenv("WS_PORT") or "8082"
         ).strip()
         bot_id_raw = os.getenv("BOT_ID", "").strip()
         bot_name = os.getenv("BOT_NAME", "蛋总").strip() or "蛋总"
@@ -59,7 +55,6 @@ class Settings:
             owner_name=owner_name,
             owner_id=owner_id,
         )
-
 
 
 def _env_bool(value: str | None, *, default: bool) -> bool:

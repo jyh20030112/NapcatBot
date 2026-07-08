@@ -11,7 +11,9 @@ from typing import Any
 class JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         payload: dict[str, Any] = {
-            "ts": datetime.fromtimestamp(record.created).isoformat(timespec="milliseconds"),
+            "ts": datetime.fromtimestamp(record.created).isoformat(
+                timespec="milliseconds"
+            ),
             "level": record.levelname,
             "logger": record.name,
         }
@@ -24,7 +26,9 @@ class JsonFormatter(logging.Formatter):
         if isinstance(data, dict):
             payload["data"] = data
         if record.exc_info:
-            payload["exception"] = "".join(traceback.format_exception(*record.exc_info)).rstrip()
+            payload["exception"] = "".join(
+                traceback.format_exception(*record.exc_info)
+            ).rstrip()
         return json.dumps(payload, ensure_ascii=False, default=str, indent=2)
 
 

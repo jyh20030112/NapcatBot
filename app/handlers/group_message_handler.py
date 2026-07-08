@@ -129,7 +129,10 @@ class GroupMessageHandler:
                 exc_info=True,
                 extra={
                     "event": "message_analysis_failed",
-                    "data": {"group_id": message.group_id, "message_id": message.message_id},
+                    "data": {
+                        "group_id": message.group_id,
+                        "message_id": message.message_id,
+                    },
                 },
             )
             return
@@ -181,7 +184,10 @@ class GroupMessageHandler:
                 exc_info=True,
                 extra={
                     "event": "reply_agent_failed",
-                    "data": {"group_id": message.group_id, "message_id": message.message_id},
+                    "data": {
+                        "group_id": message.group_id,
+                        "message_id": message.message_id,
+                    },
                 },
             )
 

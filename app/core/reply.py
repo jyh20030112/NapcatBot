@@ -4,7 +4,6 @@ from dataclasses import dataclass
 import re
 from typing import Any, Literal, get_args
 
-
 ReplyIntent = Literal[
     "ASKING",
     "CHATTING",
@@ -60,7 +59,9 @@ class ReplyDecision:
                 RiskLevel,
                 default="normal",
             ),
-            reason=str(payload.get("analysis") or payload.get("reason") or "no reason")[:1200],
+            reason=str(payload.get("analysis") or payload.get("reason") or "no reason")[
+                :1200
+            ],
         )
 
 
@@ -110,5 +111,3 @@ def clean_reply(text: str) -> str:
 def _literal_value(value: Any, literal_type: Any, *, default: Any) -> Any:
     allowed = set(get_args(literal_type))
     return value if value in allowed else default
-
-

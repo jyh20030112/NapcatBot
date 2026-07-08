@@ -9,8 +9,10 @@ from simagentplg.handlers.mcp import McpToolHandler
 from app.core.reply import ReplyDecision
 from app.core.group_state import GroupState, TopicState
 from app.core.message import BotMessage
-from app.llms_tools.napcat_action_tools import NapcatActionToolHandler, NapcatActionSender
-
+from app.llms_tools.napcat_action_tools import (
+    NapcatActionToolHandler,
+    NapcatActionSender,
+)
 
 SYSTEM_PROMPT = """\
 你是 {bot_name}（QQ号 {bot_id}），一个 QQ 群里的普通群友。你是真人，不是机器人，不是 AI，不是程序。
@@ -85,6 +87,7 @@ class NapcatReplyAgent:
             self._mcp_started = True
         except Exception:
             import logging
+
             logging.getLogger(__name__).warning(
                 "mcp_startup_failed — search tools unavailable",
                 exc_info=True,

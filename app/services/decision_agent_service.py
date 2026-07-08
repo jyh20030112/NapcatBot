@@ -7,7 +7,6 @@ from app.core.reply import ReplyDecision
 from app.core.group_state import GroupState, TopicState
 from app.core.message import BotMessage
 
-
 ANALYSIS_SYSTEM_PROMPT = """\
 你是 {bot_name}（QQ号 {bot_id}），一个普通群友，负责分析 QQ 群聊天消息。
 

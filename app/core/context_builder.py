@@ -37,7 +37,6 @@ class ContextBuilder:
 3. 归入已有话题 → assign_message_to_topic，或 新话题 → create_topic + assign_message_to_topic
 """.strip()
 
-
     def build_topic_summary_task(
         self,
         *,
@@ -142,7 +141,9 @@ topic_id: {topic.topic_id}
 """.strip()
 
 
-def _build_message_list(topic: TopicState, state: GroupState, *, count: int = 12) -> str:
+def _build_message_list(
+    topic: TopicState, state: GroupState, *, count: int = 12
+) -> str:
     lines: list[str] = []
     for item in state.recent_messages[-count:]:
         if not item.text:

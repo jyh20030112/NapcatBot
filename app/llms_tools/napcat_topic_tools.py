@@ -155,9 +155,7 @@ class TopicToolHandler(MethodToolHandler):
         group_id = int(arguments.get("group_id", 0))
         count = _limit(arguments.get("count"), default=20, maximum=50)
         if self.sender is None:
-            return StepOutcome(
-                {"status": "error", "error": "sender not available"}
-            )
+            return StepOutcome({"status": "error", "error": "sender not available"})
         result = await self.sender.send_action_and_wait(
             "get_group_msg_history",
             {

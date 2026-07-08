@@ -15,7 +15,6 @@ from app.core.group_state import GroupState, TopicState
 from app.core.message import normalize_group_message
 from app.services.decision_agent_service import DecisionService
 
-
 DUMMY_CONFIG = ModelConfig(
     model="test-model",
     api_key="test-key",
@@ -54,7 +53,9 @@ class FakeDecisionRuntime:
 
 
 class DecisionAgentServiceTests(unittest.IsolatedAsyncioTestCase):
-    async def test_decision_agent_builds_context_and_normalizes_reply_decision(self) -> None:
+    async def test_decision_agent_builds_context_and_normalizes_reply_decision(
+        self,
+    ) -> None:
         FakeDecisionRuntime.instances.clear()
         message = normalize_group_message(
             {
@@ -80,7 +81,9 @@ class DecisionAgentServiceTests(unittest.IsolatedAsyncioTestCase):
         state.topics[topic.topic_id] = topic
         state.record_topic_message(topic, message)
 
-        with patch("app.services.decision_agent_service.BaseAgent", FakeDecisionRuntime):
+        with patch(
+            "app.services.decision_agent_service.BaseAgent", FakeDecisionRuntime
+        ):
             service = DecisionService(
                 context_builder=ContextBuilder(bot_name="蛋总"),
                 config=DUMMY_CONFIG,

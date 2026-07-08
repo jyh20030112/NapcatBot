@@ -42,7 +42,9 @@ class TopicStore:
             ).fetchall()
         return [_row_dict(row) for row in rows]
 
-    def list_all_topics(self, group_id: int, *, limit: int = 50) -> list[dict[str, Any]]:
+    def list_all_topics(
+        self, group_id: int, *, limit: int = 50
+    ) -> list[dict[str, Any]]:
         with self._connect() as conn:
             rows = conn.execute(
                 """
@@ -195,8 +197,7 @@ class TopicStore:
 
     def _init_schema(self) -> None:
         with self._connect() as conn:
-            conn.executescript(
-                """
+            conn.executescript("""
                 create table if not exists topics (
                     id integer primary key autoincrement,
                     group_id text not null,
@@ -215,8 +216,7 @@ class TopicStore:
                     profile text not null default '',
                     updated_at integer not null
                 );
-                """
-            )
+                """)
             conn.execute(
                 "create index if not exists idx_topics_group_updated "
                 "on topics(group_id, status, updated_at)"

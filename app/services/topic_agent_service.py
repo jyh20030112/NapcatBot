@@ -122,7 +122,9 @@ class TopicAgentService:
 
         self.tool_handler.begin_turn(message)
         profile = self.store.get_group_profile(message.group_id)
-        group_profile = str(profile["profile"]) if profile and profile.get("profile") else ""
+        group_profile = (
+            str(profile["profile"]) if profile and profile.get("profile") else ""
+        )
         task = self.context_builder.build_topic_task(
             message=message,
             group_profile=group_profile,
@@ -134,7 +136,13 @@ class TopicAgentService:
                 logging.ERROR,
                 "topic_agent_failed",
                 exc_info=True,
-                extra={"event": "topic_agent_failed", "data": {"group_id": message.group_id, "message_id": message.message_id}},
+                extra={
+                    "event": "topic_agent_failed",
+                    "data": {
+                        "group_id": message.group_id,
+                        "message_id": message.message_id,
+                    },
+                },
             )
 
         if self.tool_handler.assigned_topic_id is None:
@@ -233,9 +241,7 @@ class TopicAgentService:
 
         task = asyncio.create_task(self._refresh_group_profile(group_id))
         self._profile_tasks[group_id] = task
-        task.add_done_callback(
-            lambda done: self._profile_tasks.pop(group_id, None)
-        )
+        task.add_done_callback(lambda done: self._profile_tasks.pop(group_id, None))
 
     async def _refresh_group_profile(self, group_id: int) -> None:
         await asyncio.sleep(0)
@@ -316,7 +322,6 @@ class TopicAgentService:
         await self.agent.shutdown()
 
 
-
 def _sync_topic_state(
     topic_row: dict[str, object],
     message: BotMessage,
@@ -329,13 +334,17 @@ def _sync_topic_state(
             topic_id=topic_id,
             title=str(topic_row["title"]),
             summary=str(topic_row["summary"]),
-            last_active_at=float(topic_row["updated_at"]),  # ty:ignore[invalid-argument-type]
+            last_active_at=float(
+                topic_row["updated_at"]
+            ),  # ty:ignore[invalid-argument-type]
         )
         state.topics[topic_id] = topic
     else:
         topic.title = str(topic_row["title"])
         topic.summary = str(topic_row["summary"])
-        topic.last_active_at = float(topic_row["updated_at"])  # ty:ignore[invalid-argument-type]
+        topic.last_active_at = float(
+            topic_row["updated_at"]
+        )  # ty:ignore[invalid-argument-type]
 
     state.record_topic_message(topic, message)
     recent_text = " / ".join(item.text for item in topic.last_messages[-20:])

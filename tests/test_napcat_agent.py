@@ -147,7 +147,6 @@ class NapcatAgentTests(unittest.IsolatedAsyncioTestCase):
                 "NapCat websocket 怎么接",
             )
 
-
     def test_topic_context_uses_context_builder(self) -> None:
         message = normalize_group_message(
             {
