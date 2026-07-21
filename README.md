@@ -21,12 +21,12 @@ QQ 群消息 → NapCatQQ → WebSocket → NapcatWebSocketAdapter
                                     (消息分析·不决策)
 ```
 
-| Agent | 职责 | 模型 | 工具 |
-|---|---|---|---|
-| **TopicClassifier** | 将消息归类到话题；后台异步生成话题摘要、群聊画像 | BaseAgent + tools | `list_recent_topics`, `get_recent_group_messages`, `create_topic`, `assign_message_to_topic` |
-| **TopicSummarizer** | 后台异步：将话题聊天记录总结为可读摘要 | BaseAgent + tools | `update_topic_summary` |
-| **MessageAnalyzer** | 分析消息的情感导向、用户意图和风险（不判断该不该回） | BaseAgent，无工具 | 直接输出 JSON（reply_intent + risk_level + analysis） |
-| **ReplyAgent** | 根据分析结果 + 上下文，自主判断是否回复、怎么回复 | BaseAgent + MCP + tools | `skip_reply`, `send_msg`, `send_at_msg`, `playwright__*` |
+| Agent               | 职责                                                 | 模型                    | 工具                                                                                         |
+| ------------------- | ---------------------------------------------------- | ----------------------- | -------------------------------------------------------------------------------------------- |
+| **TopicClassifier** | 将消息归类到话题；后台异步生成话题摘要、群聊画像     | BaseAgent + tools       | `list_recent_topics`, `get_recent_group_messages`, `create_topic`, `assign_message_to_topic` |
+| **TopicSummarizer** | 后台异步：将话题聊天记录总结为可读摘要               | BaseAgent + tools       | `update_topic_summary`                                                                       |
+| **MessageAnalyzer** | 分析消息的情感导向、用户意图和风险（不判断该不该回） | BaseAgent，无工具       | 直接输出 JSON（reply_intent + risk_level + analysis）                                        |
+| **ReplyAgent**      | 根据分析结果 + 上下文，自主判断是否回复、怎么回复    | BaseAgent + MCP + tools | `skip_reply`, `send_msg`, `send_at_msg`, `playwright__*`                                     |
 
 ReplyAgent 可选的 MCP 工具（Playwright 浏览器）让机器人能主动搜索网页查证事实后再回复。
 
