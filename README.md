@@ -1,5 +1,4 @@
 # NapcatBot
-
 基于 NapCatQQ / OneBot v11 的 QQ 群聊 Agent。LLM 调用与 function calling 由
 [SimAgentPlg](https://github.com/jiangyiheng15/SimAgentPlg) 提供，本项目负责
 NapCat 适配、群聊状态管理、话题追踪、消息分析和 QQ 动作工具。
